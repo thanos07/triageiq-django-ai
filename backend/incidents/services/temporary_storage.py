@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import BinaryIO
 
@@ -14,84 +13,161 @@ class TemporaryStorageError(RuntimeError):
 
 
 class TemporaryObjectStorage:
-    """Private temporary object storage with R2 and local-development modes."""
+    """Private temporary storage with S3-compatible and local modes."""
 
     @property
     def mode(self) -> str:
         return settings.TEMP_UPLOAD_STORAGE_MODE
 
-    def _r2_client(self):
+    @property
+    def uses_object_storage(self) -> bool:
+        return self.mode in {"s3", "r2"}
+
+    def _s3_client(self):
         required = {
-            "R2_ENDPOINT_URL": settings.R2_ENDPOINT_URL,
-            "R2_ACCESS_KEY_ID": settings.R2_ACCESS_KEY_ID,
-            "R2_SECRET_ACCESS_KEY": settings.R2_SECRET_ACCESS_KEY,
-            "R2_BUCKET_NAME": settings.R2_BUCKET_NAME,
+            "S3_ENDPOINT_URL": settings.S3_ENDPOINT_URL,
+            "S3_ACCESS_KEY_ID": settings.S3_ACCESS_KEY_ID,
+            "S3_SECRET_ACCESS_KEY": settings.S3_SECRET_ACCESS_KEY,
+            "S3_BUCKET_NAME": settings.S3_BUCKET_NAME,
+            "S3_REGION": settings.S3_REGION,
         }
-        missing = [name for name, value in required.items() if not value]
+
+        missing = [
+            name
+            for name, value in required.items()
+            if not value
+        ]
+
         if missing:
             raise TemporaryStorageError(
-                "R2 storage is selected but these settings are missing: " + ", ".join(missing)
+                "S3-compatible storage is selected but these settings "
+                "are missing: "
+                + ", ".join(missing)
             )
-        return boto3.client(
-            "s3",
-            endpoint_url=settings.R2_ENDPOINT_URL,
-            aws_access_key_id=settings.R2_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
-            region_name="auto",
-            config=Config(signature_version="s3v4", retries={"max_attempts": 3, "mode": "standard"}),
+
+        addressing_style = (
+            "path"
+            if settings.S3_FORCE_PATH_STYLE
+            else "auto"
         )
 
-    def put(self, *, key: str, payload: bytes, content_type: str, metadata: dict[str, str] | None = None) -> None:
-        if self.mode == "r2":
+        return boto3.client(
+            "s3",
+            endpoint_url=settings.S3_ENDPOINT_URL,
+            aws_access_key_id=settings.S3_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
+            region_name=settings.S3_REGION,
+            config=Config(
+                signature_version="s3v4",
+                retries={
+                    "max_attempts": 3,
+                    "mode": "standard",
+                },
+                s3={
+                    "addressing_style": addressing_style,
+                },
+            ),
+        )
+
+    def put(
+        self,
+        *,
+        key: str,
+        payload: bytes,
+        content_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> None:
+        if self.uses_object_storage:
             try:
-                self._r2_client().put_object(
-                    Bucket=settings.R2_BUCKET_NAME,
+                self._s3_client().put_object(
+                    Bucket=settings.S3_BUCKET_NAME,
                     Key=key,
                     Body=payload,
-                    ContentType=content_type or "application/octet-stream",
+                    ContentType=(
+                        content_type
+                        or "application/octet-stream"
+                    ),
                     Metadata=metadata or {},
                 )
-            except Exception as exc:  # pragma: no cover - depends on external R2
-                raise TemporaryStorageError(f"Could not upload the temporary source file: {exc}") from exc
+            except Exception as exc:
+                raise TemporaryStorageError(
+                    "Could not upload the temporary source file: "
+                    f"{exc}"
+                ) from exc
+
             return
 
         path = self._local_path(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
         path.write_bytes(payload)
 
     def get(self, key: str) -> bytes:
-        if self.mode == "r2":
+        if self.uses_object_storage:
             try:
-                response = self._r2_client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+                response = self._s3_client().get_object(
+                    Bucket=settings.S3_BUCKET_NAME,
+                    Key=key,
+                )
                 body: BinaryIO = response["Body"]
                 return body.read()
-            except Exception as exc:  # pragma: no cover - depends on external R2
-                raise TemporaryStorageError(f"Could not read the temporary source file: {exc}") from exc
+            except Exception as exc:
+                raise TemporaryStorageError(
+                    "Could not read the temporary source file: "
+                    f"{exc}"
+                ) from exc
 
         path = self._local_path(key)
+
         if not path.exists():
-            raise TemporaryStorageError("The temporary source file no longer exists.")
+            raise TemporaryStorageError(
+                "The temporary source file no longer exists."
+            )
+
         return path.read_bytes()
 
     def delete(self, key: str) -> None:
-        if self.mode == "r2":
+        if self.uses_object_storage:
             try:
-                self._r2_client().delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
-            except Exception as exc:  # pragma: no cover - depends on external R2
-                raise TemporaryStorageError(f"Could not delete the temporary source file: {exc}") from exc
+                self._s3_client().delete_object(
+                    Bucket=settings.S3_BUCKET_NAME,
+                    Key=key,
+                )
+            except Exception as exc:
+                raise TemporaryStorageError(
+                    "Could not delete the temporary source file: "
+                    f"{exc}"
+                ) from exc
+
             return
 
         path = self._local_path(key)
+
         try:
             path.unlink(missing_ok=True)
         except OSError as exc:
-            raise TemporaryStorageError(f"Could not delete the local temporary source file: {exc}") from exc
+            raise TemporaryStorageError(
+                "Could not delete the local temporary source file: "
+                f"{exc}"
+            ) from exc
 
     def _local_path(self, key: str) -> Path:
-        root = Path(settings.TEMP_UPLOAD_LOCAL_ROOT).resolve()
+        root = Path(
+            settings.TEMP_UPLOAD_LOCAL_ROOT
+        ).resolve()
+
         candidate = (root / key).resolve()
-        if root not in candidate.parents and candidate != root:
-            raise TemporaryStorageError("Unsafe temporary storage key.")
+
+        if (
+            root not in candidate.parents
+            and candidate != root
+        ):
+            raise TemporaryStorageError(
+                "Unsafe temporary storage key."
+            )
+
         return candidate
 
 

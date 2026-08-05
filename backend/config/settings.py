@@ -42,7 +42,7 @@ ALLOWED_HOSTS = [
 ]
 
 # Next.js frontend URL.
-# Django Admin's â€œView siteâ€ link will use this value.
+# Django Admin's "View site" link uses this value.
 FRONTEND_URL = os.getenv(
     "FRONTEND_URL",
     "http://localhost:3000",
@@ -336,12 +336,18 @@ REPORT_ACCENT_HEX = "#B9855A"
 # Temporary incident-source uploads
 # ---------------------------------------------------------------------
 
-# R2 lifecycle rules perform physical expiry.
-# The application also blocks access as soon as expires_at is reached.
+# Use local storage during local development.
+# Use s3 in production for Supabase Storage or another
+# S3-compatible provider.
 TEMP_UPLOAD_STORAGE_MODE = os.getenv(
     "TEMP_UPLOAD_STORAGE_MODE",
     "local",
 ).strip().lower()
+
+if TEMP_UPLOAD_STORAGE_MODE not in {"local", "s3", "r2"}:
+    raise RuntimeError(
+        "TEMP_UPLOAD_STORAGE_MODE must be local, s3, or r2."
+    )
 
 TEMP_UPLOAD_LOCAL_ROOT = os.getenv(
     "TEMP_UPLOAD_LOCAL_ROOT",
@@ -370,28 +376,52 @@ TEMP_UPLOAD_RETENTION_CHOICES = (7, 10)
 
 
 # ---------------------------------------------------------------------
-# Cloudflare R2
+# Private S3-compatible object storage
 # ---------------------------------------------------------------------
 
-R2_ENDPOINT_URL = os.getenv(
-    "R2_ENDPOINT_URL",
-    "",
+# Supports Supabase Storage, Cloudflare R2, and other
+# S3-compatible providers.
+#
+# Legacy R2_* fallbacks keep older deployments compatible.
+
+S3_ENDPOINT_URL = os.getenv(
+    "S3_ENDPOINT_URL",
+    os.getenv("R2_ENDPOINT_URL", ""),
 ).strip().rstrip("/")
 
-R2_ACCESS_KEY_ID = os.getenv(
-    "R2_ACCESS_KEY_ID",
-    "",
+S3_ACCESS_KEY_ID = os.getenv(
+    "S3_ACCESS_KEY_ID",
+    os.getenv("R2_ACCESS_KEY_ID", ""),
 ).strip()
 
-R2_SECRET_ACCESS_KEY = os.getenv(
-    "R2_SECRET_ACCESS_KEY",
-    "",
+S3_SECRET_ACCESS_KEY = os.getenv(
+    "S3_SECRET_ACCESS_KEY",
+    os.getenv("R2_SECRET_ACCESS_KEY", ""),
 ).strip()
 
-R2_BUCKET_NAME = os.getenv(
-    "R2_BUCKET_NAME",
-    "",
+S3_BUCKET_NAME = os.getenv(
+    "S3_BUCKET_NAME",
+    os.getenv("R2_BUCKET_NAME", ""),
 ).strip()
+
+S3_REGION = os.getenv(
+    "S3_REGION",
+    "auto",
+).strip()
+
+S3_FORCE_PATH_STYLE = os.getenv(
+    "S3_FORCE_PATH_STYLE",
+    "false",
+).strip().lower() == "true"
+
+
+# Legacy aliases for compatibility with the current storage service.
+# These can be removed after all R2-specific references are replaced.
+
+R2_ENDPOINT_URL = S3_ENDPOINT_URL
+R2_ACCESS_KEY_ID = S3_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY = S3_SECRET_ACCESS_KEY
+R2_BUCKET_NAME = S3_BUCKET_NAME
 
 
 # ---------------------------------------------------------------------
