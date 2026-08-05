@@ -374,6 +374,26 @@ TEMP_UPLOAD_MAX_EXTRACTED_CHARS = int(
 
 TEMP_UPLOAD_RETENTION_CHOICES = (7, 10)
 
+# Maximum number of expired uploads processed in one cleanup run.
+TEMP_UPLOAD_CLEANUP_BATCH_SIZE = int(
+    os.getenv(
+        "TEMP_UPLOAD_CLEANUP_BATCH_SIZE",
+        "100",
+    )
+)
+
+if TEMP_UPLOAD_CLEANUP_BATCH_SIZE < 1:
+    raise RuntimeError(
+        "TEMP_UPLOAD_CLEANUP_BATCH_SIZE must be at least 1."
+    )
+
+
+# Secret used to authenticate scheduled cleanup requests.
+# Keep this value private and configure it in Vercel.
+CRON_SECRET = os.getenv(
+    "CRON_SECRET",
+    "",
+).strip()
 
 # ---------------------------------------------------------------------
 # Private S3-compatible object storage

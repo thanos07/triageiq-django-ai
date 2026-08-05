@@ -10,7 +10,11 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-from .views import HealthView, RootView
+from .views import (
+    HealthView,
+    RetentionCleanupView,
+    RootView,
+)
 
 
 admin.site.site_header = "TriageIQ Administration"
@@ -20,12 +24,22 @@ admin.site.site_url = settings.FRONTEND_URL
 
 
 urlpatterns = [
-    path("", RootView.as_view(), name="root"),
+    path(
+        "",
+        RootView.as_view(),
+        name="root",
+    ),
 
     path(
         "api/health/",
         HealthView.as_view(),
         name="health",
+    ),
+
+    path(
+        "api/cron/purge-expired-uploads/",
+        RetentionCleanupView.as_view(),
+        name="purge-expired-uploads",
     ),
 
     path(
