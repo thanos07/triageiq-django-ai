@@ -1,0 +1,8 @@
+{
+  "title": "Orders API returning intermittent 503 responses",
+  "description": "Production requests began failing after release 7.4.2. Gateway logs show intermittent 503 responses, but no database metrics were attached.",
+  "service": "orders-api",
+  "environment": "production",
+  "severity": "high",
+  "customer_impact": "Some customers cannot place orders."
+}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <clipPath id="shieldClip">
+      <path d="M256 46C216 77 162 94 106 98V205C106 330 187 410 256 436C325 410 406 330 406 205V98C350 94 296 77 256 46Z"/>
+    </clipPath>
+  </defs>
+  <path d="M256 46C216 77 162 94 106 98V205C106 330 187 410 256 436C325 410 406 330 406 205V98C350 94 296 77 256 46Z" fill="#FFFDF8"/>
+  <g clip-path="url(#shieldClip)">
+    <path d="M106 98V218L256 204V46C216 77 162 94 106 98Z" fill="#2B211C"/>
+    <path d="M256 46V204L406 190V98C350 94 296 77 256 46Z" fill="#C89B6D"/>
+    <path d="M106 218L256 204L406 190L256 436C187 410 106 330 106 218Z" fill="#4A372E"/>
+    <path d="M256 204L406 190L256 436L406 304V436H196L256 204Z" fill="#F4EBDD"/>
+  </g>
+  <path d="M132 195H177L202 125L228 243L259 160L288 215L322 176L365 133"
+        stroke="#FFFDF8" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M146 279C178 304 216 315 255 315" stroke="#D7B287" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="152" cy="278" r="18" fill="#FFFDF8" stroke="#D7B287" stroke-width="7"/>
+  <circle cx="251" cy="315" r="18" fill="#FFFDF8" stroke="#D7B287" stroke-width="7"/>
+  <path d="M256 46C216 77 162 94 106 98V205C106 330 187 410 256 436C325 410 406 330 406 205V98C350 94 296 77 256 46Z" stroke="#2B211C" stroke-opacity="0.18" stroke-width="5"/>
+</svg>

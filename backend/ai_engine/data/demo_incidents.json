@@ -1,0 +1,222 @@
+[
+  {
+    "slug": "db-pool-exhaustion",
+    "title": "Orders API failing with PostgreSQL connection-pool exhaustion",
+    "description": "Production orders-api returns 503 and pool timeout errors. PostgreSQL reports too many clients and pg_stat_activity shows 500 active connections after a traffic increase.",
+    "service_name": "orders-api",
+    "environment": "production",
+    "reported_severity": "critical",
+    "business_impact": "All customers are unable to place orders.",
+    "expected_runbook_id": "rb-001",
+    "target_state": "resolved"
+  },
+  {
+    "slug": "replication-lag",
+    "title": "Read replica lag causing stale inventory availability",
+    "description": "Inventory reads are more than nine minutes behind the primary. WAL replay lag is growing on the production read replica and customers see products as available after they sell out.",
+    "service_name": "inventory-db",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Customers receive incorrect stock availability and some orders require cancellation.",
+    "expected_runbook_id": "rb-002",
+    "target_state": "awaiting_review"
+  },
+  {
+    "slug": "database-deadlock",
+    "title": "Checkout writes blocked by database deadlocks",
+    "description": "Checkout transactions are aborting with deadlock detected and lock wait timeout messages. A new order-discount transaction holds locks in a different order.",
+    "service_name": "checkout-db",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Some customers cannot complete checkout.",
+    "expected_runbook_id": "rb-003",
+    "target_state": "revision_required"
+  },
+  {
+    "slug": "kubernetes-crashloop",
+    "title": "Catalog pods in CrashLoopBackOff after config rollout",
+    "description": "All new product-catalog pods are cycling in CrashLoopBackOff. Previous logs show connection refused to config-service and exit code 1 after a ConfigMap rollout.",
+    "service_name": "product-catalog",
+    "environment": "production",
+    "reported_severity": "critical",
+    "business_impact": "Product pages and search are unavailable to all customers.",
+    "expected_runbook_id": "rb-004",
+    "target_state": "resolved"
+  },
+  {
+    "slug": "oom-model",
+    "title": "Recommendation engine OOMKilled after larger model release",
+    "description": "Recommendation pods show OOMKilled and exit code 137 every eight minutes. Memory limit is 4Gi and the new model is 2.4 times larger.",
+    "service_name": "recommendation-engine",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Recommendations fall back to generic ranking for all customers.",
+    "expected_runbook_id": "rb-005",
+    "target_state": "remediation_in_progress"
+  },
+  {
+    "slug": "cpu-saturation",
+    "title": "Search API CPU throttling drives P99 latency above 12 seconds",
+    "description": "Production search-api has 98 percent CPU, severe CPU throttling, and a growing run queue after a ranking feature launch.",
+    "service_name": "search-api",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Search is slow and intermittent for most customers.",
+    "expected_runbook_id": "rb-006",
+    "target_state": "awaiting_review"
+  },
+  {
+    "slug": "disk-full",
+    "title": "Elasticsearch disk pressure blocks log ingestion",
+    "description": "Logging nodes crossed the disk high watermark and indices became read-only. Filebeat and Logstash queues are growing and application logs are not searchable.",
+    "service_name": "logging-platform",
+    "environment": "production",
+    "reported_severity": "medium",
+    "business_impact": "Responders cannot search the last four hours of production logs.",
+    "expected_runbook_id": "rb-007",
+    "target_state": "awaiting_review"
+  },
+  {
+    "slug": "dns-failure",
+    "title": "Intermittent CoreDNS resolution failures across microservices",
+    "description": "Services report no such host and DNS lookup timeout errors. CoreDNS CPU throttling began after the cluster scaled from 20 to 60 nodes.",
+    "service_name": "coredns",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Intermittent service-to-service failures affect multiple customer workflows.",
+    "expected_runbook_id": "rb-008",
+    "target_state": "resolved"
+  },
+  {
+    "slug": "tls-expiry",
+    "title": "Istio mTLS handshakes failing after intermediate certificate expiry",
+    "description": "Eight production services report x509 certificate expired and TLS handshake failures. The cert-manager renewal order failed silently.",
+    "service_name": "service-mesh",
+    "environment": "production",
+    "reported_severity": "critical",
+    "business_impact": "All traffic between eight critical services is blocked.",
+    "expected_runbook_id": "rb-009",
+    "target_state": "remediation_in_progress"
+  },
+  {
+    "slug": "auth-outage",
+    "title": "Authentication service returns 503 for login requests",
+    "description": "The external load balancer reports no healthy upstream auth targets while internal health endpoints still return 200. Login failures affect web and mobile clients.",
+    "service_name": "identity-api",
+    "environment": "production",
+    "reported_severity": "critical",
+    "business_impact": "All customers are unable to sign in.",
+    "expected_runbook_id": "rb-010",
+    "target_state": "resolved"
+  },
+  {
+    "slug": "jwt-validation",
+    "title": "JWT signature verification failures after signing-key rotation",
+    "description": "The API returns 401 unauthorized and signature verification failed. JWKS cache still contains the retired key identifier after key rotation.",
+    "service_name": "api-auth-middleware",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Authenticated API clients cannot access protected endpoints.",
+    "expected_runbook_id": "rb-011",
+    "target_state": "awaiting_review"
+  },
+  {
+    "slug": "payment-timeout",
+    "title": "Payment gateway timeouts causing checkout failures",
+    "description": "Payment authorization requests time out after 15 seconds and provider latency has increased. Retried transactions use idempotency keys but reconciliation is pending.",
+    "service_name": "payment-api",
+    "environment": "production",
+    "reported_severity": "critical",
+    "business_impact": "A large portion of customers cannot complete payment.",
+    "expected_runbook_id": "rb-012",
+    "target_state": "resolved"
+  },
+  {
+    "slug": "webhook-backlog",
+    "title": "Stripe webhook backlog delays payment confirmation",
+    "description": "Webhook endpoints return 504 and 14000 provider callbacks are queued. The Lambda event source mapping is disabled and oldest event age is 45 minutes.",
+    "service_name": "payment-webhook-consumer",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Successful payments remain unconfirmed and orders are delayed.",
+    "expected_runbook_id": "rb-013",
+    "target_state": "awaiting_review"
+  },
+  {
+    "slug": "queue-backlog",
+    "title": "Notification queue backlog delays customer messages",
+    "description": "SQS queue depth is 280000 and oldest message age is three hours. Consumer concurrency was reduced from 500 to 50.",
+    "service_name": "notification-worker",
+    "environment": "production",
+    "reported_severity": "medium",
+    "business_impact": "Order confirmations and shipping alerts are delayed.",
+    "expected_runbook_id": "rb-014",
+    "target_state": "remediation_in_progress"
+  },
+  {
+    "slug": "redis-outage",
+    "title": "Redis session cache outage causes login failures",
+    "description": "Redis connections are refused and session cache nodes have no healthy replica. Authentication requests generate a cache miss storm against the database.",
+    "service_name": "session-cache",
+    "environment": "production",
+    "reported_severity": "critical",
+    "business_impact": "Existing sessions fail and login traffic is overloading the database.",
+    "expected_runbook_id": "rb-015",
+    "target_state": "awaiting_review"
+  },
+  {
+    "slug": "waf-rate-limit",
+    "title": "WAF rate-limit rule blocks enterprise customer traffic",
+    "description": "A new rate limit misconfiguration returns 429 responses to legitimate enterprise traffic behind shared NAT addresses. Twelve customer accounts escalated.",
+    "service_name": "api-gateway",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Enterprise customers are blocked and revenue is at risk.",
+    "expected_runbook_id": "rb-016",
+    "target_state": "revision_required"
+  },
+  {
+    "slug": "load-balancer",
+    "title": "Load balancer reports no healthy upstream for checkout",
+    "description": "External users receive 502 bad gateway. The target group marks every checkout backend unhealthy after the health-check path changed.",
+    "service_name": "checkout-edge",
+    "environment": "production",
+    "reported_severity": "critical",
+    "business_impact": "All customers are unable to reach checkout.",
+    "expected_runbook_id": "rb-017",
+    "target_state": "resolved"
+  },
+  {
+    "slug": "deployment-regression",
+    "title": "Profile API error spike immediately after release 8.2.0",
+    "description": "HTTP 5xx increased from 0.2 to 18 percent immediately after deployment of release 8.2.0. The prior version is rollback compatible.",
+    "service_name": "profile-api",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "Customers intermittently cannot load or update profiles.",
+    "expected_runbook_id": "rb-018",
+    "target_state": "awaiting_review"
+  },
+  {
+    "slug": "invalid-secret",
+    "title": "Billing worker fails after invalid database secret rotation",
+    "description": "New pods fail startup with secret missing and invalid password errors. Existing pods continue working with the previous secret version.",
+    "service_name": "billing-worker",
+    "environment": "production",
+    "reported_severity": "high",
+    "business_impact": "New billing jobs are not processing and the queue is growing.",
+    "expected_runbook_id": "rb-019",
+    "target_state": "rejected"
+  },
+  {
+    "slug": "third-party-outage",
+    "title": "Address verification vendor API unavailable",
+    "description": "The external provider status page reports a third party outage. Vendor API requests time out in all regions while internal service health remains normal.",
+    "service_name": "address-verification",
+    "environment": "production",
+    "reported_severity": "medium",
+    "business_impact": "New customer onboarding is delayed but manual review remains available.",
+    "expected_runbook_id": "rb-020",
+    "target_state": "awaiting_review"
+  }
+]

@@ -1,0 +1,1398 @@
+[
+  {
+    "id": "rb-001",
+    "name": "PostgreSQL connection-pool exhaustion",
+    "category": "database",
+    "problem": "Application requests fail or stall because all database connections are occupied.",
+    "keywords": [
+      "connection pool exhausted",
+      "too many clients",
+      "database connections",
+      "pool timeout",
+      "pg_stat_activity",
+      "postgres connection"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Confirm active, idle, waiting, and maximum database connections.",
+      "Identify long-running transactions, blocked queries, and pool wait time.",
+      "Correlate connection growth with traffic, deployment, or configuration changes."
+    ],
+    "solution_steps": [
+      "Reduce avoidable connection demand and restore the approved pool configuration.",
+      "Cancel only confirmed runaway or blocking sessions with database-owner approval.",
+      "Scale database or pool capacity temporarily when safe, then correct the application leak or query behaviour."
+    ],
+    "verification_steps": [
+      "Connection wait time and timeout errors return to baseline.",
+      "Checkout or other affected user journeys complete successfully for the observation window."
+    ],
+    "rollback_plan": [
+      "Revert pool-size or application changes if database pressure increases."
+    ],
+    "escalation_triggers": [
+      "Possible data corruption",
+      "Long-running write transactions",
+      "Database unavailable across all replicas"
+    ],
+    "caution": "Do not terminate database sessions in bulk; active transactions may be interrupted.",
+    "missing_information": [
+      "Current connection count and configured limit",
+      "Top waiting and long-running queries",
+      "Recent pool or application configuration changes"
+    ]
+  },
+  {
+    "id": "rb-002",
+    "name": "Database replication lag",
+    "category": "database",
+    "problem": "Read replicas are stale or unavailable because replication is delayed or broken.",
+    "keywords": [
+      "replication lag",
+      "replica lag",
+      "wal lag",
+      "read replica stale",
+      "replication slot",
+      "standby delay"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Measure replay, receive, and write-ahead-log lag for each replica.",
+      "Check network health, disk throughput, long-running queries, and replication slots.",
+      "Determine whether stale reads are affecting customer-visible decisions."
+    ],
+    "solution_steps": [
+      "Route consistency-sensitive reads to a healthy primary or replica using the approved failover process.",
+      "Resolve the resource or network bottleneck preventing WAL replay.",
+      "Rebuild a replica only after confirming retention, backups, and failover safety."
+    ],
+    "verification_steps": [
+      "Replica lag remains below the agreed threshold.",
+      "Read-after-write and application consistency checks pass."
+    ],
+    "rollback_plan": [
+      "Restore the previous read-routing configuration if primary load becomes unsafe."
+    ],
+    "escalation_triggers": [
+      "Primary at capacity",
+      "Replication broken on every replica",
+      "Potential loss of WAL required for recovery"
+    ],
+    "caution": "Do not promote a stale replica without checking recovery point and split-brain risk.",
+    "missing_information": [
+      "Lag in seconds and bytes",
+      "Primary and replica resource utilisation",
+      "Current read-routing policy"
+    ]
+  },
+  {
+    "id": "rb-003",
+    "name": "Database deadlock or lock contention",
+    "category": "database",
+    "problem": "Transactions block or abort because sessions hold conflicting locks.",
+    "keywords": [
+      "deadlock",
+      "lock wait",
+      "blocked query",
+      "database lock",
+      "transaction lock",
+      "lock contention"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "List blockers, blocked sessions, transaction age, and affected tables.",
+      "Identify the application operation and release associated with the lock chain.",
+      "Check whether retry storms are increasing contention."
+    ],
+    "solution_steps": [
+      "Stop or reduce the offending workload using the safest application control.",
+      "Cancel a confirmed blocker only with transaction-impact approval.",
+      "Fix transaction ordering, query scope, or missing indexes after service recovery."
+    ],
+    "verification_steps": [
+      "Lock wait time and deadlock count return to baseline.",
+      "Affected writes succeed without retry storms."
+    ],
+    "rollback_plan": [
+      "Restore prior application version or traffic policy if the mitigation worsens errors."
+    ],
+    "escalation_triggers": [
+      "Critical write path blocked",
+      "Unknown long-running transaction",
+      "Data integrity concern"
+    ],
+    "caution": "Killing a blocker can roll back significant work and increase load.",
+    "missing_information": [
+      "Blocking session tree",
+      "Transaction age and query text",
+      "Affected write operations"
+    ]
+  },
+  {
+    "id": "rb-004",
+    "name": "Kubernetes CrashLoopBackOff",
+    "category": "kubernetes",
+    "problem": "One or more containers repeatedly crash and Kubernetes cannot keep the service healthy.",
+    "keywords": [
+      "crashloopbackoff",
+      "crash loop",
+      "pod restart storm",
+      "container exit code",
+      "liveness probe failed",
+      "pods cycling"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Inspect pod status, previous container logs, events, and exit code.",
+      "Validate ConfigMaps, Secrets, dependencies, probes, and resource limits.",
+      "Compare the failing ReplicaSet with the last known-good deployment."
+    ],
+    "solution_steps": [
+      "Correct the missing dependency, invalid configuration, or resource limit when clearly identified.",
+      "Roll back to the last known-good deployment using the approved process.",
+      "Temporarily increase healthy replica capacity only if the failing version is isolated."
+    ],
+    "verification_steps": [
+      "Pods remain Ready without restarts.",
+      "Service health checks and customer requests remain successful."
+    ],
+    "rollback_plan": [
+      "Undo the mitigation or restore the previous ReplicaSet if readiness declines."
+    ],
+    "escalation_triggers": [
+      "All replicas crashing",
+      "Rollback fails",
+      "Cluster-wide instability"
+    ],
+    "caution": "Repeated force deletion does not fix the underlying failure and can overload the control plane.",
+    "missing_information": [
+      "Previous container logs and exit code",
+      "Recent deployment or configuration diff",
+      "Dependency and probe status"
+    ]
+  },
+  {
+    "id": "rb-005",
+    "name": "Container out-of-memory termination",
+    "category": "capacity",
+    "problem": "A container is OOMKilled because memory demand exceeds its limit or node capacity.",
+    "keywords": [
+      "oomkilled",
+      "out of memory",
+      "memory limit",
+      "exit code 137",
+      "heap growth",
+      "memory pressure"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Confirm OOMKilled status, memory limit, working set, and node pressure.",
+      "Compare memory usage with the previous application or model version.",
+      "Inspect heap, cache, batch, and request-size changes."
+    ],
+    "solution_steps": [
+      "Roll back the memory regression when it correlates with a release.",
+      "Increase limits temporarily only when node capacity and cost controls permit.",
+      "Reduce batch size, cache footprint, model size, or concurrency as an immediate reversible mitigation."
+    ],
+    "verification_steps": [
+      "No OOM terminations occur during the observation window.",
+      "Memory usage remains below the safe threshold under representative load."
+    ],
+    "rollback_plan": [
+      "Restore previous limits or release if node pressure or latency worsens."
+    ],
+    "escalation_triggers": [
+      "Node-wide memory pressure",
+      "Possible memory leak",
+      "All replicas OOMKilled"
+    ],
+    "caution": "Increasing limits without checking node capacity can move the outage to other workloads.",
+    "missing_information": [
+      "Container limit and peak working set",
+      "Node allocatable memory",
+      "Recent code, model, or traffic change"
+    ]
+  },
+  {
+    "id": "rb-006",
+    "name": "CPU saturation and request throttling",
+    "category": "capacity",
+    "problem": "Service latency or errors rise because CPU is saturated or containers are throttled.",
+    "keywords": [
+      "cpu saturation",
+      "cpu throttling",
+      "high cpu",
+      "cpu limit",
+      "run queue",
+      "processor utilisation"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Measure CPU usage, throttling, run queue, request rate, and latency by instance.",
+      "Identify hot endpoints, loops, compression, encryption, or query work driving CPU.",
+      "Compare resource limits and autoscaling behaviour with recent traffic."
+    ],
+    "solution_steps": [
+      "Scale healthy capacity or raise approved CPU limits temporarily.",
+      "Reduce expensive optional work or traffic using feature flags and rate controls.",
+      "Roll back the code path causing abnormal CPU consumption."
+    ],
+    "verification_steps": [
+      "CPU throttling and latency return to baseline.",
+      "Autoscaling stabilises without an error-rate increase."
+    ],
+    "rollback_plan": [
+      "Restore prior scaling or feature settings if cost or stability degrades."
+    ],
+    "escalation_triggers": [
+      "Cluster capacity exhausted",
+      "Suspected infinite loop",
+      "Security traffic spike"
+    ],
+    "caution": "Scaling alone can hide an inefficient or malicious workload.",
+    "missing_information": [
+      "CPU usage and throttling metrics",
+      "Traffic and endpoint breakdown",
+      "Autoscaler events"
+    ]
+  },
+  {
+    "id": "rb-007",
+    "name": "Disk pressure or filesystem full",
+    "category": "storage",
+    "problem": "Writes fail or workloads become unhealthy because disk usage or inode consumption is near capacity.",
+    "keywords": [
+      "disk pressure",
+      "disk full",
+      "no space left",
+      "inode full",
+      "read-only index",
+      "filesystem usage"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Measure filesystem, volume, inode, and write-amplification usage.",
+      "Identify the fastest-growing files, indices, logs, or temporary data.",
+      "Confirm retention policy, snapshots, and recovery requirements before deletion."
+    ],
+    "solution_steps": [
+      "Free only approved disposable data such as rotated logs or caches.",
+      "Expand the volume or storage tier using the documented procedure.",
+      "Correct retention, compaction, or log-rotation settings after recovery."
+    ],
+    "verification_steps": [
+      "Disk usage remains below the safety watermark.",
+      "Writes, indexing, and application health checks succeed."
+    ],
+    "rollback_plan": [
+      "Restore archived data or previous retention settings if required records were affected."
+    ],
+    "escalation_triggers": [
+      "Database volume full",
+      "Unknown files consuming space",
+      "Potential audit-log loss"
+    ],
+    "caution": "Never delete database, audit, or application data without owner approval and backup validation.",
+    "missing_information": [
+      "Filesystem and inode usage",
+      "Largest growth sources",
+      "Retention and backup status"
+    ]
+  },
+  {
+    "id": "rb-008",
+    "name": "DNS resolution failure",
+    "category": "network",
+    "problem": "Services cannot resolve hostnames consistently or at all.",
+    "keywords": [
+      "dns resolution",
+      "no such host",
+      "servfail",
+      "coredns",
+      "name resolution",
+      "lookup timeout"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Test resolution from affected and healthy workloads against each resolver.",
+      "Inspect DNS server health, latency, cache, throttling, and configuration.",
+      "Check recent cluster scaling, network policy, and search-domain changes."
+    ],
+    "solution_steps": [
+      "Scale or restart unhealthy resolver instances using the approved process.",
+      "Roll back a faulty DNS configuration or policy change.",
+      "Reduce excessive query patterns and apply safe caching after service recovery."
+    ],
+    "verification_steps": [
+      "Resolution succeeds consistently from representative workloads.",
+      "Service-to-service error rate returns to baseline."
+    ],
+    "rollback_plan": [
+      "Restore the previous DNS configuration and replica count if failures worsen."
+    ],
+    "escalation_triggers": [
+      "All environments affected",
+      "Authoritative DNS unavailable",
+      "Possible DNS poisoning"
+    ],
+    "caution": "Avoid hard-coding IP addresses as a permanent fix.",
+    "missing_information": [
+      "Resolver response codes and latency",
+      "Affected names and namespaces",
+      "Recent DNS or cluster changes"
+    ]
+  },
+  {
+    "id": "rb-009",
+    "name": "TLS certificate expiry or trust failure",
+    "category": "security",
+    "problem": "TLS or mTLS handshakes fail because a certificate expired, is invalid, or is not trusted.",
+    "keywords": [
+      "certificate expired",
+      "tls handshake",
+      "x509",
+      "mtls failure",
+      "cert-manager",
+      "certificate not trusted"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high"
+    ],
+    "diagnostic_steps": [
+      "Identify the failing certificate, chain, expiry, subject, and trust store.",
+      "Inspect certificate automation, renewal orders, secrets, and alert history.",
+      "Determine which clients and services trust the old and new chain."
+    ],
+    "solution_steps": [
+      "Renew or replace the affected certificate through the approved PKI workflow.",
+      "Distribute trust anchors and restart or reload workloads in a safe sequence.",
+      "Repair renewal and alerting automation after service recovery."
+    ],
+    "verification_steps": [
+      "TLS handshakes pass from every affected client path.",
+      "Certificate expiry monitoring and automatic renewal are healthy."
+    ],
+    "rollback_plan": [
+      "Restore the previous certificate and trust chain if compatibility fails and it remains valid."
+    ],
+    "escalation_triggers": [
+      "CA compromise suspected",
+      "External customer certificate expired",
+      "Rotation cannot be completed without downtime"
+    ],
+    "caution": "Incorrect CA rotation sequencing can cause a wider outage.",
+    "missing_information": [
+      "Failing certificate and chain",
+      "Client trust-store coverage",
+      "Renewal automation status"
+    ]
+  },
+  {
+    "id": "rb-010",
+    "name": "Authentication service outage",
+    "category": "authentication",
+    "problem": "Users cannot sign in because the authentication service or identity provider is unavailable.",
+    "keywords": [
+      "authentication 503",
+      "login failures",
+      "identity provider unavailable",
+      "auth service down",
+      "no healthy upstream auth",
+      "signin outage"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high"
+    ],
+    "diagnostic_steps": [
+      "Measure login success by client, region, and authentication flow.",
+      "Check authentication pods, load balancer health, identity provider, session store, and recent deployment.",
+      "Validate internal and external health endpoints separately."
+    ],
+    "solution_steps": [
+      "Restore healthy authentication capacity or roll back the implicated change.",
+      "Fail over to an approved identity-provider path when available.",
+      "Protect existing sessions and avoid invalidating tokens unnecessarily."
+    ],
+    "verification_steps": [
+      "New logins and token refreshes succeed from all supported clients.",
+      "Authentication error rate remains normal during observation."
+    ],
+    "rollback_plan": [
+      "Return to the previous deployment or provider route if the mitigation fails."
+    ],
+    "escalation_triggers": [
+      "All customers unable to log in",
+      "Security control bypass proposed",
+      "Identity provider compromise suspected"
+    ],
+    "caution": "Do not disable authentication or signature checks to restore availability.",
+    "missing_information": [
+      "Login success rate by flow",
+      "Identity-provider and session-store health",
+      "Recent authentication changes"
+    ]
+  },
+  {
+    "id": "rb-011",
+    "name": "JWT or token validation failure",
+    "category": "authentication",
+    "problem": "Valid users receive unauthorized errors because token validation, signing keys, clocks, or claims are incorrect.",
+    "keywords": [
+      "jwt invalid",
+      "token expired",
+      "signature verification failed",
+      "jwks",
+      "401 unauthorized",
+      "clock skew token"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Inspect failure reason, token issuer, audience, expiry, clock skew, and key identifier.",
+      "Check JWKS availability, signing-key rotation, cache, and deployment configuration.",
+      "Compare a failing token flow with a known-good flow without exposing credentials."
+    ],
+    "solution_steps": [
+      "Restore the correct issuer, audience, clock, or JWKS configuration.",
+      "Refresh cached signing keys through the approved process.",
+      "Roll back a faulty token or identity configuration change."
+    ],
+    "verification_steps": [
+      "Token validation and refresh succeed for representative clients.",
+      "Unauthorized error rate returns to baseline."
+    ],
+    "rollback_plan": [
+      "Restore the previous key and validation configuration if compatibility declines."
+    ],
+    "escalation_triggers": [
+      "Signing key compromise suspected",
+      "Security validation bypass requested",
+      "Multiple issuers affected"
+    ],
+    "caution": "Never log complete access tokens or disable signature verification.",
+    "missing_information": [
+      "Validation error reason",
+      "Issuer, audience, and key identifier",
+      "Recent signing-key rotation"
+    ]
+  },
+  {
+    "id": "rb-012",
+    "name": "Payment gateway timeout",
+    "category": "payments",
+    "problem": "Checkout or payment authorization fails because the payment provider or integration times out.",
+    "keywords": [
+      "payment gateway timeout",
+      "payment authorization timeout",
+      "checkout timeout",
+      "stripe timeout",
+      "payment provider latency",
+      "transactions failing"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high"
+    ],
+    "diagnostic_steps": [
+      "Measure payment success, timeout, duplicate-attempt, and provider latency rates.",
+      "Check provider status, network path, connection pools, and recent integration changes.",
+      "Confirm idempotency handling before retries or failover."
+    ],
+    "solution_steps": [
+      "Reduce unsafe retries and preserve idempotency keys.",
+      "Fail over to an approved provider or queue requests when the business flow supports it.",
+      "Roll back the integration change or tune timeouts only with provider guidance."
+    ],
+    "verification_steps": [
+      "Payment success returns to baseline without duplicate charges.",
+      "Reconciliation confirms no missing or duplicated transactions."
+    ],
+    "rollback_plan": [
+      "Restore previous provider routing and timeout settings if errors increase."
+    ],
+    "escalation_triggers": [
+      "Duplicate charges",
+      "Reconciliation mismatch",
+      "All payment providers unavailable"
+    ],
+    "caution": "Do not replay payment requests without idempotency and reconciliation controls.",
+    "missing_information": [
+      "Provider response and latency metrics",
+      "Idempotency and retry behaviour",
+      "Payment reconciliation status"
+    ]
+  },
+  {
+    "id": "rb-013",
+    "name": "Webhook processing backlog",
+    "category": "integration",
+    "problem": "Inbound provider events accumulate because webhook delivery or consumers are delayed.",
+    "keywords": [
+      "webhook backlog",
+      "webhooks delayed",
+      "webhook 504",
+      "event source mapping disabled",
+      "webhook queue",
+      "provider callbacks delayed"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Measure oldest event age, queue depth, delivery response codes, and consumer throughput.",
+      "Check endpoint availability, signatures, event-source mappings, and dead-letter queues.",
+      "Confirm whether events are safe and idempotent to replay."
+    ],
+    "solution_steps": [
+      "Restore consumer invocation or endpoint health.",
+      "Scale consumers within downstream capacity limits.",
+      "Replay failed events from the provider or queue using idempotency controls."
+    ],
+    "verification_steps": [
+      "Oldest event age and queue depth trend toward zero.",
+      "Business records reconcile with provider events."
+    ],
+    "rollback_plan": [
+      "Reduce consumer concurrency if downstream systems saturate."
+    ],
+    "escalation_triggers": [
+      "Events cannot be replayed safely",
+      "Payment or security events affected",
+      "Dead-letter queue growing"
+    ],
+    "caution": "Replaying non-idempotent events can duplicate business actions.",
+    "missing_information": [
+      "Oldest event age and queue depth",
+      "Consumer invocation errors",
+      "Replay and idempotency support"
+    ]
+  },
+  {
+    "id": "rb-014",
+    "name": "Message queue backlog or consumer lag",
+    "category": "messaging",
+    "problem": "Messages wait too long because consumers are slow, stopped, or under-provisioned.",
+    "keywords": [
+      "queue backlog",
+      "consumer lag",
+      "messages delayed",
+      "sqs backlog",
+      "kafka lag",
+      "queue depth"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Measure queue depth, oldest message age, production rate, and consumption rate.",
+      "Inspect consumer health, concurrency, throttling, poison messages, and downstream limits.",
+      "Check dead-letter queues and recent deployment or quota changes."
+    ],
+    "solution_steps": [
+      "Restore or scale healthy consumers within downstream capacity.",
+      "Isolate poison messages and correct retry policy.",
+      "Revert accidental concurrency or quota reductions."
+    ],
+    "verification_steps": [
+      "Consumer rate exceeds producer rate until backlog clears.",
+      "Oldest message age and dead-letter volume return to normal."
+    ],
+    "rollback_plan": [
+      "Reduce concurrency if downstream errors or throttling rise."
+    ],
+    "escalation_triggers": [
+      "Data retention window at risk",
+      "Poison message blocks partition",
+      "Critical notifications delayed"
+    ],
+    "caution": "Scaling consumers can overload downstream databases or providers.",
+    "missing_information": [
+      "Queue depth and oldest age",
+      "Producer and consumer rates",
+      "Dead-letter and retry metrics"
+    ]
+  },
+  {
+    "id": "rb-015",
+    "name": "Redis or cache outage",
+    "category": "cache",
+    "problem": "Requests fail or slow down because the cache is unavailable, evicting heavily, or serving invalid data.",
+    "keywords": [
+      "redis unavailable",
+      "cache outage",
+      "cache miss storm",
+      "redis connection refused",
+      "eviction spike",
+      "session cache down"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Check cache node health, memory, evictions, connections, replication, and latency.",
+      "Determine whether the cache holds sessions, locks, rate limits, or disposable data.",
+      "Measure database and dependency load caused by cache misses."
+    ],
+    "solution_steps": [
+      "Fail over to a healthy replica or restore cache capacity using the approved process.",
+      "Apply controlled bypass only for data safe to recompute.",
+      "Correct memory policy, key growth, or connection configuration after recovery."
+    ],
+    "verification_steps": [
+      "Cache latency, hit rate, and connection errors return to baseline.",
+      "Downstream systems remain healthy as cache traffic recovers."
+    ],
+    "rollback_plan": [
+      "Remove bypass and restore previous routing if downstream load increases."
+    ],
+    "escalation_triggers": [
+      "Session loss",
+      "Distributed lock safety affected",
+      "Database overloaded by miss storm"
+    ],
+    "caution": "Flushing a cache can cause data loss, logout storms, or downstream overload.",
+    "missing_information": [
+      "Cache role and data criticality",
+      "Eviction and memory metrics",
+      "Replica and downstream health"
+    ]
+  },
+  {
+    "id": "rb-016",
+    "name": "API rate-limit or WAF misconfiguration",
+    "category": "edge",
+    "problem": "Legitimate traffic is blocked by an incorrect throttling or firewall rule.",
+    "keywords": [
+      "429 responses",
+      "rate limit misconfiguration",
+      "waf rule",
+      "legitimate traffic blocked",
+      "throttling policy",
+      "shared nat blocked"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Measure rejected traffic by rule, client, route, account, and geography.",
+      "Compare the active edge policy with the previous approved version.",
+      "Confirm whether the traffic is legitimate and whether an attack is also present."
+    ],
+    "solution_steps": [
+      "Disable or narrow only the identified faulty rule with security approval.",
+      "Apply account, token, or route-aware limits instead of broad shared-IP blocking.",
+      "Roll back the edge-policy deployment when safe."
+    ],
+    "verification_steps": [
+      "Legitimate success rate returns without a security-event increase.",
+      "Rate-limit metrics match the intended customer policy."
+    ],
+    "rollback_plan": [
+      "Restore the previous policy immediately if attack traffic or abuse increases."
+    ],
+    "escalation_triggers": [
+      "Active attack suspected",
+      "Revenue-critical customers blocked",
+      "Security approval unavailable"
+    ],
+    "caution": "Do not disable the entire WAF or rate-limiting layer.",
+    "missing_information": [
+      "Rejecting rule identifier",
+      "Affected customer and route breakdown",
+      "Security threat indicators"
+    ]
+  },
+  {
+    "id": "rb-017",
+    "name": "Load balancer has no healthy upstream",
+    "category": "network",
+    "problem": "External traffic receives gateway errors because the load balancer sees no healthy backend.",
+    "keywords": [
+      "no healthy upstream",
+      "load balancer unhealthy",
+      "502 bad gateway",
+      "503 load balancer",
+      "target group unhealthy",
+      "gateway no backend"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high"
+    ],
+    "diagnostic_steps": [
+      "Inspect target health, health-check path, ports, security groups, and backend readiness.",
+      "Compare internal service health with load-balancer observations.",
+      "Review deployment, certificate, network, and health-check configuration changes."
+    ],
+    "solution_steps": [
+      "Restore healthy backends or correct the health-check configuration.",
+      "Shift traffic to a healthy region, target group, or prior deployment when approved.",
+      "Remove unhealthy targets only after preserving sufficient capacity."
+    ],
+    "verification_steps": [
+      "Targets remain healthy and gateway errors return to baseline.",
+      "External and internal synthetic tests both pass."
+    ],
+    "rollback_plan": [
+      "Return traffic to the prior target group or configuration if errors worsen."
+    ],
+    "escalation_triggers": [
+      "No healthy region",
+      "Health checks pass internally but fail externally",
+      "Network policy uncertainty"
+    ],
+    "caution": "Do not mark unhealthy targets healthy by weakening checks without understanding the failure.",
+    "missing_information": [
+      "Target health reason",
+      "Health-check configuration",
+      "External versus internal test results"
+    ]
+  },
+  {
+    "id": "rb-018",
+    "name": "Application deployment regression",
+    "category": "deployment",
+    "problem": "Errors or latency begin immediately after a new application release.",
+    "keywords": [
+      "after deployment",
+      "after release",
+      "deployment regression",
+      "rollback release",
+      "new version errors",
+      "release caused"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Correlate error and latency changes with the release timestamp and affected cohort.",
+      "Compare logs, metrics, feature flags, schema, and configuration between versions.",
+      "Confirm rollback and database compatibility."
+    ],
+    "solution_steps": [
+      "Pause further rollout and roll back to the last known-good version when safe.",
+      "Disable the implicated feature flag or code path as a reversible mitigation.",
+      "Preserve diagnostics and open a defect with the exact regression evidence."
+    ],
+    "verification_steps": [
+      "Error rate and business metrics return to the pre-release baseline.",
+      "The prior version remains stable during the observation window."
+    ],
+    "rollback_plan": [
+      "Reapply the new version only after the regression is understood and validated."
+    ],
+    "escalation_triggers": [
+      "Rollback incompatible with schema change",
+      "Possible data corruption",
+      "Multiple releases involved"
+    ],
+    "caution": "Confirm backward compatibility before rolling back migrations or stateful services.",
+    "missing_information": [
+      "Release identifier and timestamp",
+      "Metric comparison before and after release",
+      "Rollback and schema compatibility"
+    ]
+  },
+  {
+    "id": "rb-019",
+    "name": "Invalid configuration, secret, or feature flag",
+    "category": "configuration",
+    "problem": "A service fails because a runtime configuration, secret, endpoint, or feature flag is incorrect.",
+    "keywords": [
+      "invalid configuration",
+      "secret missing",
+      "configuration drift",
+      "feature flag error",
+      "bad environment variable",
+      "config service unavailable"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Compare the active configuration and secret references with the last known-good version.",
+      "Check secret expiry, permissions, mount status, and configuration rollout events.",
+      "Identify whether only new pods or all instances are affected."
+    ],
+    "solution_steps": [
+      "Restore the last known-good configuration or secret version.",
+      "Roll back the feature flag or configuration deployment.",
+      "Restart or reload only the workloads that require the corrected values."
+    ],
+    "verification_steps": [
+      "New and existing instances pass configuration and dependency checks.",
+      "Authentication, startup, and affected requests remain healthy."
+    ],
+    "rollback_plan": [
+      "Restore the previous configuration version if the correction causes new failures."
+    ],
+    "escalation_triggers": [
+      "Secret compromise suspected",
+      "No known-good version",
+      "Configuration affects multiple services"
+    ],
+    "caution": "Do not expose secret values in logs, tickets, or AI prompts.",
+    "missing_information": [
+      "Configuration diff and version",
+      "Secret metadata without secret value",
+      "Affected instance pattern"
+    ]
+  },
+  {
+    "id": "rb-020",
+    "name": "Third-party dependency outage",
+    "category": "third-party",
+    "problem": "A critical external provider is degraded or unavailable.",
+    "keywords": [
+      "third party outage",
+      "external provider unavailable",
+      "vendor api down",
+      "dependency outage",
+      "provider status incident",
+      "upstream vendor failure"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Confirm provider status, request failures, latency, regions, and affected operations.",
+      "Check credentials, quotas, DNS, and recent integration changes to rule out local causes.",
+      "Determine available fallback, queueing, and graceful-degradation paths."
+    ],
+    "solution_steps": [
+      "Activate the approved fallback provider or degraded mode.",
+      "Queue safe operations for later processing and communicate limitations.",
+      "Reduce retry storms and follow the vendor escalation process."
+    ],
+    "verification_steps": [
+      "Provider or fallback success rate returns to the target.",
+      "Queued operations reconcile after recovery."
+    ],
+    "rollback_plan": [
+      "Return to primary provider gradually and remove degraded mode after validation."
+    ],
+    "escalation_triggers": [
+      "No fallback for critical operation",
+      "Vendor data inconsistency",
+      "Contractual SLA breach"
+    ],
+    "caution": "Uncontrolled retries can amplify both your outage and the provider outage.",
+    "missing_information": [
+      "Provider status and error breakdown",
+      "Fallback readiness",
+      "Queueing and reconciliation capability"
+    ]
+  },
+  {
+    "id": "rb-021",
+    "name": "Network packet loss or connectivity degradation",
+    "category": "network",
+    "problem": "Requests intermittently fail or slow because packets are dropped or routes are unstable.",
+    "keywords": [
+      "packet loss",
+      "network latency",
+      "connection reset",
+      "intermittent connectivity",
+      "route flap",
+      "tcp retransmission"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Measure packet loss, retransmissions, latency, and path changes from affected locations.",
+      "Compare zones, nodes, subnets, and healthy control paths.",
+      "Inspect network-device, cloud, and policy changes."
+    ],
+    "solution_steps": [
+      "Reroute traffic away from the affected path or zone.",
+      "Roll back the network or policy change when identified.",
+      "Reduce cross-zone dependency until connectivity stabilises."
+    ],
+    "verification_steps": [
+      "Packet loss and retransmissions return to normal.",
+      "Application success and latency recover across affected locations."
+    ],
+    "rollback_plan": [
+      "Restore prior routing if the alternate path is unstable or saturated."
+    ],
+    "escalation_triggers": [
+      "Multiple regions affected",
+      "Possible denial-of-service attack",
+      "Cloud-provider network incident"
+    ],
+    "caution": "Avoid broad firewall changes that weaken security.",
+    "missing_information": [
+      "Source and destination path",
+      "Loss and retransmission metrics",
+      "Recent route or policy changes"
+    ]
+  },
+  {
+    "id": "rb-022",
+    "name": "Object storage access failure",
+    "category": "storage",
+    "problem": "Applications cannot read or write files because object storage is unavailable or access is denied.",
+    "keywords": [
+      "object storage unavailable",
+      "s3 access denied",
+      "r2 upload failed",
+      "bucket unavailable",
+      "blob storage error",
+      "object store timeout"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Check provider status, bucket policy, credentials, endpoint, DNS, quota, and region.",
+      "Separate access-denied failures from timeouts and missing-object errors.",
+      "Confirm whether temporary upload, download, or permanent data paths are affected."
+    ],
+    "solution_steps": [
+      "Restore the correct scoped credentials or bucket policy.",
+      "Use an approved alternate region or temporary storage path when data classification permits.",
+      "Queue non-critical writes for retry with bounded backoff."
+    ],
+    "verification_steps": [
+      "Representative uploads and downloads pass with least-privilege access.",
+      "No unauthorised public exposure is introduced."
+    ],
+    "rollback_plan": [
+      "Restore previous policy or endpoint if access or security worsens."
+    ],
+    "escalation_triggers": [
+      "Potential public data exposure",
+      "Permanent data at risk",
+      "Provider-wide outage"
+    ],
+    "caution": "Never make a private bucket public as an availability workaround.",
+    "missing_information": [
+      "Exact storage error code",
+      "Bucket policy and credential metadata",
+      "Data sensitivity and fallback eligibility"
+    ]
+  },
+  {
+    "id": "rb-023",
+    "name": "CDN outage or stale-cache incident",
+    "category": "edge",
+    "problem": "Users receive stale, missing, or failed content because CDN caching or origin routing is incorrect.",
+    "keywords": [
+      "cdn outage",
+      "stale cache",
+      "cache purge failed",
+      "edge 5xx",
+      "origin shield",
+      "content not updating"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Compare CDN and direct-origin responses by region and cache status.",
+      "Inspect cache keys, TTL, purge status, origin health, and edge rules.",
+      "Identify whether content correctness or only performance is affected."
+    ],
+    "solution_steps": [
+      "Purge only the affected cache keys or roll back the faulty edge rule.",
+      "Bypass the CDN for a narrow route when origin capacity is safe.",
+      "Correct cache headers and keys after recovery."
+    ],
+    "verification_steps": [
+      "Content and status codes are correct across representative regions.",
+      "Origin load remains within safe limits."
+    ],
+    "rollback_plan": [
+      "Restore previous caching rules if origin load or errors increase."
+    ],
+    "escalation_triggers": [
+      "Security-sensitive stale content",
+      "Global edge outage",
+      "Origin cannot absorb bypass traffic"
+    ],
+    "caution": "A broad purge or bypass can overload the origin.",
+    "missing_information": [
+      "Affected URLs and regions",
+      "Cache status and TTL",
+      "Origin capacity"
+    ]
+  },
+  {
+    "id": "rb-024",
+    "name": "Email or notification delivery delay",
+    "category": "notifications",
+    "problem": "Transactional messages are delayed or missing because provider, queue, template, or consumer processing is unhealthy.",
+    "keywords": [
+      "email delayed",
+      "notifications delayed",
+      "sms not sent",
+      "delivery backlog",
+      "notification service slow",
+      "order confirmation missing"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium",
+      "low"
+    ],
+    "diagnostic_steps": [
+      "Measure queue age, provider acceptance, bounce, rejection, and consumer rate.",
+      "Check templates, suppression lists, credentials, quotas, and provider status.",
+      "Separate delayed delivery from failed generation."
+    ],
+    "solution_steps": [
+      "Restore consumers or provider credentials and scale within provider limits.",
+      "Fail over to an approved channel for critical notifications.",
+      "Replay safe messages with deduplication controls."
+    ],
+    "verification_steps": [
+      "Queue age falls and representative messages are delivered.",
+      "Duplicate and bounce rates remain within limits."
+    ],
+    "rollback_plan": [
+      "Reduce replay or concurrency if duplicates or provider throttling increases."
+    ],
+    "escalation_triggers": [
+      "Security or payment notifications delayed",
+      "Provider account suspended",
+      "Messages cannot be deduplicated"
+    ],
+    "caution": "Bulk replay can send duplicate or outdated customer messages.",
+    "missing_information": [
+      "Queue age and consumer rate",
+      "Provider acceptance and bounce data",
+      "Replay deduplication support"
+    ]
+  },
+  {
+    "id": "rb-025",
+    "name": "Data corruption or integrity mismatch",
+    "category": "data-integrity",
+    "problem": "Stored or processed data is inconsistent, missing, duplicated, or corrupted.",
+    "keywords": [
+      "data corruption",
+      "integrity mismatch",
+      "duplicate records",
+      "missing records",
+      "checksum mismatch",
+      "incorrect balances"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high"
+    ],
+    "diagnostic_steps": [
+      "Stop or isolate the suspected writer and preserve evidence.",
+      "Identify affected records, time window, source of truth, and last verified backup.",
+      "Compare checksums, audit events, and reconciliation results."
+    ],
+    "solution_steps": [
+      "Prevent further writes through the narrowest safe control.",
+      "Restore or repair data only from a verified source with owner approval.",
+      "Reconcile downstream systems and document every correction."
+    ],
+    "verification_steps": [
+      "Checksums, invariants, and business reconciliation pass.",
+      "No new inconsistent records appear during observation."
+    ],
+    "rollback_plan": [
+      "Retain snapshots and provide a reversible correction plan before modifying production data."
+    ],
+    "escalation_triggers": [
+      "Financial or personal data affected",
+      "Source of truth unclear",
+      "Backup integrity unknown"
+    ],
+    "caution": "Do not run ad-hoc production updates before preserving evidence and validating backups.",
+    "missing_information": [
+      "Affected record scope",
+      "Source of truth",
+      "Backup and audit-log integrity"
+    ]
+  },
+  {
+    "id": "rb-026",
+    "name": "Credential or secret exposure",
+    "category": "security",
+    "problem": "An API key, token, password, or private key may have been exposed.",
+    "keywords": [
+      "credential leak",
+      "secret exposed",
+      "api key leaked",
+      "token in logs",
+      "password committed",
+      "private key exposed"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high"
+    ],
+    "diagnostic_steps": [
+      "Determine the secret type, scope, exposure location, and first possible exposure time.",
+      "Review access logs for suspicious use without copying the secret.",
+      "Identify every system and integration that trusts the credential."
+    ],
+    "solution_steps": [
+      "Revoke and rotate the credential through the approved emergency process.",
+      "Remove the exposed value from active logs, repositories, and caches where feasible.",
+      "Update dependent systems and increase monitoring for abuse."
+    ],
+    "verification_steps": [
+      "Old credential is rejected and new credential works only where intended.",
+      "No continuing unauthorised use is detected."
+    ],
+    "rollback_plan": [
+      "Maintain a coordinated cutover plan; do not reactivate the exposed credential."
+    ],
+    "escalation_triggers": [
+      "Privileged or production credential",
+      "Evidence of misuse",
+      "Personal or regulated data access"
+    ],
+    "caution": "Do not paste exposed secrets into tickets, chat, logs, or AI prompts.",
+    "missing_information": [
+      "Credential scope and privileges",
+      "Exposure duration and location",
+      "Access-log evidence"
+    ]
+  },
+  {
+    "id": "rb-027",
+    "name": "DDoS or abusive traffic spike",
+    "category": "security",
+    "problem": "Service capacity is consumed by malicious or abnormal traffic.",
+    "keywords": [
+      "ddos",
+      "traffic flood",
+      "bot attack",
+      "request spike malicious",
+      "syn flood",
+      "abusive traffic"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high"
+    ],
+    "diagnostic_steps": [
+      "Measure traffic rate, source distribution, routes, user agents, and error patterns.",
+      "Separate legitimate demand from abusive traffic.",
+      "Inspect CDN, WAF, load balancer, and infrastructure saturation."
+    ],
+    "solution_steps": [
+      "Enable approved DDoS protections and narrow rate controls.",
+      "Challenge or block malicious patterns without broad customer impact.",
+      "Scale protected capacity only where it does not amplify cost risk."
+    ],
+    "verification_steps": [
+      "Legitimate success rate recovers while abusive traffic is mitigated.",
+      "Infrastructure utilisation returns to safe levels."
+    ],
+    "rollback_plan": [
+      "Remove emergency blocks gradually after traffic normalises and false positives are reviewed."
+    ],
+    "escalation_triggers": [
+      "Attack bypasses edge protection",
+      "Cost or capacity emergency",
+      "Potential application-layer exploit"
+    ],
+    "caution": "Overly broad IP blocks can deny service to legitimate shared networks.",
+    "missing_information": [
+      "Traffic signature and source distribution",
+      "Legitimate baseline",
+      "Edge mitigation status"
+    ]
+  },
+  {
+    "id": "rb-028",
+    "name": "Logging or observability pipeline failure",
+    "category": "observability",
+    "problem": "Logs, metrics, or traces are unavailable, delayed, or incomplete during an incident.",
+    "keywords": [
+      "logs not searchable",
+      "logging pipeline down",
+      "metrics missing",
+      "trace ingestion failed",
+      "elasticsearch read only",
+      "observability outage"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium"
+    ],
+    "diagnostic_steps": [
+      "Check collector, queue, processor, storage, and query-layer health.",
+      "Measure ingestion lag, dropped events, disk pressure, and backpressure.",
+      "Confirm application health independently because observability may be wrong."
+    ],
+    "solution_steps": [
+      "Restore capacity or clear approved backpressure points.",
+      "Reduce non-essential telemetry volume temporarily.",
+      "Correct retention, quota, or pipeline configuration."
+    ],
+    "verification_steps": [
+      "Ingestion lag returns to normal and recent telemetry is queryable.",
+      "No critical audit or security events are missing."
+    ],
+    "rollback_plan": [
+      "Restore prior sampling and retention after pipeline stability is confirmed."
+    ],
+    "escalation_triggers": [
+      "Audit logs lost",
+      "Security monitoring blind",
+      "Storage corruption suspected"
+    ],
+    "caution": "Do not delete required audit or security logs to restore capacity.",
+    "missing_information": [
+      "Pipeline stage with backlog",
+      "Dropped-event count",
+      "Audit-log retention requirement"
+    ]
+  },
+  {
+    "id": "rb-029",
+    "name": "Scheduled job or cron failure",
+    "category": "automation",
+    "problem": "A scheduled task did not run, ran late, or repeatedly failed.",
+    "keywords": [
+      "cron job failed",
+      "scheduled job missed",
+      "scheduler failure",
+      "batch job not running",
+      "periodic task failed",
+      "job overdue"
+    ],
+    "severity_applicability": [
+      "high",
+      "medium",
+      "low"
+    ],
+    "diagnostic_steps": [
+      "Check scheduler history, next run, locks, credentials, and execution logs.",
+      "Determine business impact and whether rerun is idempotent.",
+      "Inspect recent schedule, timezone, deployment, and permission changes."
+    ],
+    "solution_steps": [
+      "Correct the schedule, lock, credential, or runtime failure.",
+      "Run the job manually only after confirming idempotency and downstream capacity.",
+      "Add missed-run and duration alerts."
+    ],
+    "verification_steps": [
+      "The job completes once and the next scheduled run is correct.",
+      "Business output reconciles without duplicates."
+    ],
+    "rollback_plan": [
+      "Stop a manual rerun if duplicates or downstream pressure appear."
+    ],
+    "escalation_triggers": [
+      "Financial settlement job",
+      "Non-idempotent batch",
+      "Data-retention deadline at risk"
+    ],
+    "caution": "Manual reruns can duplicate transactions or notifications.",
+    "missing_information": [
+      "Last successful run",
+      "Failure log and scheduler state",
+      "Idempotency and business deadline"
+    ]
+  },
+  {
+    "id": "rb-030",
+    "name": "Unknown or insufficiently observed incident",
+    "category": "unknown",
+    "problem": "The incident does not match a known case or lacks enough evidence for a specific remediation.",
+    "keywords": [
+      "unknown incident",
+      "insufficient evidence",
+      "unexplained failure",
+      "generic outage",
+      "cause unknown",
+      "telemetry incomplete"
+    ],
+    "severity_applicability": [
+      "critical",
+      "high",
+      "medium",
+      "low"
+    ],
+    "diagnostic_steps": [
+      "Establish incident owner, scope, start time, and customer impact.",
+      "Collect errors, logs, traces, metrics, dependencies, and recent changes.",
+      "Create and test reversible hypotheses one at a time."
+    ],
+    "solution_steps": [
+      "Stabilise through the safest documented generic mitigation.",
+      "Escalate to the service owner when confidence remains low.",
+      "Avoid irreversible actions until evidence supports them."
+    ],
+    "verification_steps": [
+      "The affected user journey and system health indicators recover.",
+      "The confirmed cause and effective action are documented for a new runbook case."
+    ],
+    "rollback_plan": [
+      "Stop any mitigation that worsens impact and restore the last known-good state."
+    ],
+    "escalation_triggers": [
+      "Critical impact with no diagnosis",
+      "Data or security risk",
+      "No service owner available"
+    ],
+    "caution": "Generic advice must not be treated as permission for destructive actions.",
+    "missing_information": [
+      "Incident scope and start time",
+      "Diagnostic telemetry",
+      "Recent change history"
+    ]
+  }
+]
