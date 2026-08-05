@@ -10,6 +10,12 @@
       "framework": "django"
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/purge-expired-uploads/",
+      "schedule": "0 2 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
