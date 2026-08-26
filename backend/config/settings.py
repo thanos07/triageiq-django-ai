@@ -323,6 +323,10 @@ AI_TIMEOUT_SECONDS = int(
     os.getenv("AI_TIMEOUT_SECONDS", "45")
 )
 
+AI_INVESTIGATION_MAX_TOOL_CALLS = int(
+    os.getenv("AI_INVESTIGATION_MAX_TOOL_CALLS", "3")
+)
+
 
 # ---------------------------------------------------------------------
 # Report configuration

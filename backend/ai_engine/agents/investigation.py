@@ -135,6 +135,12 @@ class InvestigationAgent:
             "secret",
             "key",
             "certificate",
+            "new ",
+            "changed",
+            "updated",
+            "reduced",
+            "disabled",
+            "enabled",
         )
         if service and any(signal in text for signal in change_signals):
             plan.append(("get_recent_deployments", {"service_name": service}))
