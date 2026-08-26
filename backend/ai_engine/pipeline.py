@@ -3,19 +3,27 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from ai_engine.agents import RootCauseAgent, RunbookAgent, SeverityAgent, SummaryAgent
-from incidents.models import AgentExecution, Incident, WorkflowResult
+from ai_engine.agents import (
+    InvestigationAgent,
+    RootCauseAgent,
+    RunbookAgent,
+    SeverityAgent,
+    SummaryAgent,
+)
+from incidents.models import AgentExecution, AgentToolExecution, Incident, WorkflowResult
 from incidents.services.lifecycle import transition_incident
 
 
 NEXT_STAGE = {
     WorkflowResult.Stage.NOT_STARTED: WorkflowResult.Stage.NORMALIZATION,
     WorkflowResult.Stage.NORMALIZATION: WorkflowResult.Stage.SEVERITY,
-    WorkflowResult.Stage.SEVERITY: WorkflowResult.Stage.ROOT_CAUSE,
+    WorkflowResult.Stage.SEVERITY: WorkflowResult.Stage.INVESTIGATION,
+    WorkflowResult.Stage.INVESTIGATION: WorkflowResult.Stage.ROOT_CAUSE,
     WorkflowResult.Stage.ROOT_CAUSE: WorkflowResult.Stage.RUNBOOK,
     WorkflowResult.Stage.RUNBOOK: WorkflowResult.Stage.SUMMARY,
     WorkflowResult.Stage.SUMMARY: WorkflowResult.Stage.COMPLETE,
@@ -51,6 +59,7 @@ def _confidence(data: dict[str, Any] | None) -> float | None:
 def _aggregate_confidence(workflow: WorkflowResult) -> float:
     values = [
         _confidence(workflow.severity_output),
+        _confidence(workflow.investigation_output),
         _confidence(workflow.root_cause_output),
         _confidence(workflow.runbook_output),
         _confidence(workflow.summary_output),
@@ -72,6 +81,7 @@ def _context_for(workflow: WorkflowResult, incident: Incident) -> dict[str, Any]
     return {
         "incident": workflow.normalized_data or _incident_context(incident),
         "severity": workflow.severity_output or {},
+        "investigation": workflow.investigation_output or {},
         "root_cause": workflow.root_cause_output or {},
         "runbook": workflow.runbook_output or {},
     }
@@ -114,6 +124,7 @@ def advance_pipeline(incident: Incident, *, user=None) -> tuple[Incident, Workfl
 
     stage = NEXT_STAGE[workflow.current_stage]
     started = time.monotonic()
+    active_execution: AgentExecution | None = None
 
     try:
         if stage == WorkflowResult.Stage.NORMALIZATION:
@@ -125,16 +136,51 @@ def advance_pipeline(incident: Incident, *, user=None) -> tuple[Incident, Workfl
                 "retry_count": 0,
                 "execution_mode": "mock",
                 "error_message": "",
+                "tool_executions": [],
             }
         else:
             context = _context_for(workflow, incident)
             agents = {
                 WorkflowResult.Stage.SEVERITY: SeverityAgent(),
+                WorkflowResult.Stage.INVESTIGATION: InvestigationAgent(),
                 WorkflowResult.Stage.ROOT_CAUSE: RootCauseAgent(),
                 WorkflowResult.Stage.RUNBOOK: RunbookAgent(),
                 WorkflowResult.Stage.SUMMARY: SummaryAgent(),
             }
-            run = agents[stage].run(context)
+            if stage == WorkflowResult.Stage.INVESTIGATION:
+                expected_mode = (
+                    AgentExecution.Mode.MOCK
+                    if settings.AI_MODE != "live"
+                    else AgentExecution.Mode.FALLBACK
+                    if not settings.AI_API_KEY
+                    else AgentExecution.Mode.LIVE
+                )
+                active_execution = AgentExecution.objects.create(
+                    incident=incident,
+                    stage=stage,
+                    status=AgentExecution.Status.STARTED,
+                    execution_mode=expected_mode,
+                    model_name="",
+                    input_summary={"incident": incident.reference, "stage": stage},
+                )
+
+                def persist_tool_run(tool_run) -> None:
+                    AgentToolExecution.objects.create(
+                        incident=incident,
+                        agent_execution=active_execution,
+                        sequence=tool_run.sequence,
+                        tool_name=tool_run.tool_name,
+                        arguments=tool_run.arguments,
+                        result=tool_run.result,
+                        status=tool_run.status,
+                        execution_mode=tool_run.execution_mode,
+                        latency_ms=tool_run.latency_ms,
+                        error_message=tool_run.error_message,
+                    )
+
+                run = agents[stage].run(context, on_tool_execution=persist_tool_run)
+            else:
+                run = agents[stage].run(context)
             run_data = {
                 "output": run.output.model_dump(),
                 "model_name": run.model_name,
@@ -149,6 +195,7 @@ def advance_pipeline(incident: Incident, *, user=None) -> tuple[Incident, Workfl
             field_map = {
                 WorkflowResult.Stage.NORMALIZATION: "normalized_data",
                 WorkflowResult.Stage.SEVERITY: "severity_output",
+                WorkflowResult.Stage.INVESTIGATION: "investigation_output",
                 WorkflowResult.Stage.ROOT_CAUSE: "root_cause_output",
                 WorkflowResult.Stage.RUNBOOK: "runbook_output",
                 WorkflowResult.Stage.SUMMARY: "summary_output",
@@ -160,19 +207,33 @@ def advance_pipeline(incident: Incident, *, user=None) -> tuple[Incident, Workfl
             workflow.is_processing = False
             workflow.save()
 
-            AgentExecution.objects.create(
-                incident=incident,
-                stage=stage,
-                status=AgentExecution.Status.SUCCESS,
-                execution_mode=run_data["execution_mode"],
-                model_name=run_data["model_name"],
-                input_summary={"incident": incident.reference, "stage": stage},
-                output=run_data["output"],
-                confidence=_confidence(run_data["output"]),
-                latency_ms=run_data["latency_ms"],
-                retry_count=run_data["retry_count"],
-                error_message=run_data["error_message"],
-            )
+            if active_execution is not None:
+                active_execution.status = AgentExecution.Status.SUCCESS
+                active_execution.execution_mode = run_data["execution_mode"]
+                active_execution.model_name = run_data["model_name"]
+                active_execution.output = run_data["output"]
+                active_execution.confidence = _confidence(run_data["output"])
+                active_execution.latency_ms = run_data["latency_ms"]
+                active_execution.retry_count = run_data["retry_count"]
+                active_execution.error_message = run_data["error_message"]
+                active_execution.save(update_fields=(
+                    "status", "execution_mode", "model_name", "output",
+                    "confidence", "latency_ms", "retry_count", "error_message",
+                ))
+            else:
+                AgentExecution.objects.create(
+                    incident=incident,
+                    stage=stage,
+                    status=AgentExecution.Status.SUCCESS,
+                    execution_mode=run_data["execution_mode"],
+                    model_name=run_data["model_name"],
+                    input_summary={"incident": incident.reference, "stage": stage},
+                    output=run_data["output"],
+                    confidence=_confidence(run_data["output"]),
+                    latency_ms=run_data["latency_ms"],
+                    retry_count=run_data["retry_count"],
+                    error_message=run_data["error_message"],
+                )
 
             if stage == WorkflowResult.Stage.SUMMARY:
                 workflow.current_stage = WorkflowResult.Stage.COMPLETE
@@ -197,16 +258,22 @@ def advance_pipeline(incident: Incident, *, user=None) -> tuple[Incident, Workfl
             workflow.is_processing = False
             workflow.failure_reason = str(exc)
             workflow.save(update_fields=("is_processing", "failure_reason", "updated_at"))
-            AgentExecution.objects.create(
-                incident=incident,
-                stage=stage,
-                status=AgentExecution.Status.FAILED,
-                execution_mode=AgentExecution.Mode.FALLBACK,
-                model_name="",
-                input_summary={"incident": incident.reference, "stage": stage},
-                error_message=str(exc),
-                latency_ms=max(1, int((time.monotonic() - started) * 1000)),
-            )
+            if active_execution is not None:
+                active_execution.status = AgentExecution.Status.FAILED
+                active_execution.error_message = str(exc)
+                active_execution.latency_ms = max(1, int((time.monotonic() - started) * 1000))
+                active_execution.save(update_fields=("status", "error_message", "latency_ms"))
+            else:
+                AgentExecution.objects.create(
+                    incident=incident,
+                    stage=stage,
+                    status=AgentExecution.Status.FAILED,
+                    execution_mode=AgentExecution.Mode.FALLBACK,
+                    model_name="",
+                    input_summary={"incident": incident.reference, "stage": stage},
+                    error_message=str(exc),
+                    latency_ms=max(1, int((time.monotonic() - started) * 1000)),
+                )
         transition_incident(
             incident,
             Incident.Status.FAILED,

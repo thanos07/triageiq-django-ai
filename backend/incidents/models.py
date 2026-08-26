@@ -91,6 +91,7 @@ class WorkflowResult(models.Model):
         NOT_STARTED = "not_started", "Not started"
         NORMALIZATION = "normalization", "Normalization"
         SEVERITY = "severity", "Severity"
+        INVESTIGATION = "investigation", "Investigation"
         ROOT_CAUSE = "root_cause", "Root cause"
         RUNBOOK = "runbook", "Runbook"
         SUMMARY = "summary", "Summary"
@@ -108,6 +109,7 @@ class WorkflowResult(models.Model):
     )
     normalized_data = models.JSONField(null=True, blank=True)
     severity_output = models.JSONField(null=True, blank=True)
+    investigation_output = models.JSONField(null=True, blank=True)
     root_cause_output = models.JSONField(null=True, blank=True)
     runbook_output = models.JSONField(null=True, blank=True)
     summary_output = models.JSONField(null=True, blank=True)
@@ -128,6 +130,7 @@ class AgentExecution(models.Model):
     class Stage(models.TextChoices):
         NORMALIZATION = "normalization", "Normalization"
         SEVERITY = "severity", "Severity agent"
+        INVESTIGATION = "investigation", "Investigation agent"
         ROOT_CAUSE = "root_cause", "Root-cause agent"
         RUNBOOK = "runbook", "Runbook agent"
         SUMMARY = "summary", "Communication agent"
@@ -157,6 +160,46 @@ class AgentExecution(models.Model):
 
     class Meta:
         ordering = ("created_at",)
+
+
+class AgentToolExecution(models.Model):
+    class Status(models.TextChoices):
+        STARTED = "started", "Started"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+
+    incident = models.ForeignKey(
+        Incident,
+        on_delete=models.CASCADE,
+        related_name="tool_executions",
+    )
+    agent_execution = models.ForeignKey(
+        AgentExecution,
+        on_delete=models.CASCADE,
+        related_name="tool_executions",
+    )
+    sequence = models.PositiveSmallIntegerField(default=1)
+    tool_name = models.CharField(max_length=80)
+    arguments = models.JSONField(default=dict, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices)
+    execution_mode = models.CharField(
+        max_length=16,
+        choices=AgentExecution.Mode.choices,
+        default=AgentExecution.Mode.LIVE,
+    )
+    latency_ms = models.PositiveIntegerField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("agent_execution_id", "sequence", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("agent_execution", "sequence"),
+                name="uniq_agent_tool_sequence",
+            ),
+        ]
 
 
 class ReviewDecision(models.Model):
