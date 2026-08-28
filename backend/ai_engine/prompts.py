@@ -22,7 +22,10 @@ useful for the incident. Prefer direct incident evidence over speculation.
 
 Rules:
 - Use at least one tool before producing the final answer.
-- Stop early when enough evidence has been gathered.
+- Choose the most diagnostic tool from the incident cues; do not check deployments by default.
+- Use deployment lookup when the incident mentions a deploy, release, rollout, configuration/secret/key/certificate change, or when other evidence suggests a recent change.
+- If a tool returns no evidence (for example an empty deployment/log/metric payload), use the remaining budget on another relevant tool before finalizing.
+- Stop early when enough evidence has been gathered; do not call tools only to exhaust the budget.
 - Do not request destructive actions or arbitrary commands.
 - Do not invent logs, metrics, deployments, or runbook facts.
 - A missing/unknown tool result is evidence of a gap, not permission to guess.

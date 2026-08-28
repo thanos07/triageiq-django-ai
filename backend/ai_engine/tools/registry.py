@@ -50,19 +50,29 @@ class ToolDefinition:
 TOOL_REGISTRY: dict[str, ToolDefinition] = {
     "get_recent_deployments": ToolDefinition(
         "get_recent_deployments",
-        "Read up to three recent local synthetic deployment records for one service.",
+        (
+            "Read up to three recent local synthetic deployment/configuration records "
+            "for one service. Prefer this when incident cues suggest a recent change; "
+            "it may return no deployment evidence."
+        ),
         RecentDeploymentsArgs,
         get_recent_deployments,
     ),
     "get_service_metrics": ToolDefinition(
         "get_service_metrics",
-        "Read compact local synthetic service metrics and their baseline.",
+        (
+            "Read compact local synthetic service metrics and their baseline. "
+            "Useful for saturation, latency, error-rate, capacity, and dependency-health signals."
+        ),
         ServiceMetricsArgs,
         get_service_metrics,
     ),
     "search_logs": ToolDefinition(
         "search_logs",
-        "Search local synthetic logs for one service and return at most five relevant records.",
+        (
+            "Search local synthetic logs for one service and return at most five relevant records. "
+            "Useful for corroborating incident-specific error signatures and failure mechanisms."
+        ),
         SearchLogsArgs,
         search_logs,
     ),

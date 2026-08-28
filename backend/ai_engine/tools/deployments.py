@@ -15,8 +15,10 @@ class RecentDeploymentsArgs(BaseModel):
 def get_recent_deployments(service_name: str) -> dict[str, Any]:
     service = normalize_service_name(service_name)
     record = get_service_record(service)
+    deployments = list((record or {}).get("deployments", []))[:3]
     return {
         "service_name": service,
-        "found": record is not None,
-        "deployments": list((record or {}).get("deployments", []))[:3],
+        "service_found": record is not None,
+        "found": bool(deployments),
+        "deployments": deployments,
     }

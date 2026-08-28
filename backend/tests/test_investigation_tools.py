@@ -88,3 +88,10 @@ def test_investigation_result_requires_bounded_confidence():
     assert valid.confidence == 0.86
     with pytest.raises(ValidationError):
         InvestigationResult(confidence=1.1)
+
+
+def test_recent_deployments_distinguish_known_service_from_deployment_evidence():
+    result = get_recent_deployments("orders-api")
+    assert result["service_found"] is True
+    assert result["found"] is False
+    assert result["deployments"] == []

@@ -78,6 +78,16 @@ class Command(BaseCommand):
             help="Number of demo scenarios to evaluate (1-20).",
         )
         parser.add_argument(
+            "--slug",
+            action="append",
+            default=[],
+            help=(
+                "Evaluate only the named demo scenario. Repeat --slug to "
+                "select multiple scenarios. When supplied, --limit applies "
+                "after slug filtering."
+            ),
+        )
+        parser.add_argument(
             "--output",
             default="",
             help="Optional path for the JSON report.",
@@ -143,7 +153,29 @@ class Command(BaseCommand):
                 "to the evaluation report."
             )
 
-        scenarios = self._load_scenarios()[:limit]
+        scenarios = self._load_scenarios()
+        requested_slugs = [
+            str(value).strip()
+            for value in options.get("slug", [])
+            if str(value).strip()
+        ]
+        if requested_slugs:
+            by_slug = {
+                str(item.get("slug", "")): item
+                for item in scenarios
+            }
+            missing = [
+                slug for slug in requested_slugs
+                if slug not in by_slug
+            ]
+            if missing:
+                raise CommandError(
+                    "Unknown --slug value(s): "
+                    + ", ".join(missing)
+                )
+            scenarios = [by_slug[slug] for slug in requested_slugs]
+
+        scenarios = scenarios[:limit]
         rows: list[dict[str, Any]] = []
         tool_usage: Counter[str] = Counter()
         execution_modes: Counter[str] = Counter()
@@ -211,6 +243,10 @@ class Command(BaseCommand):
                         "supporting_evidence_count": len(run.output.supporting_evidence),
                         "missing_evidence_count": len(run.output.missing_evidence),
                         "confidence": run.output.confidence,
+                        "leading_hypothesis": run.output.leading_hypothesis,
+                        "observations": run.output.observations,
+                        "supporting_evidence": run.output.supporting_evidence,
+                        "missing_evidence": run.output.missing_evidence,
                         "error_message": run.error_message,
                     }
                 )
@@ -346,6 +382,10 @@ class Command(BaseCommand):
         self.stdout.write(
             "Successful tool-call rate: "
             f"{metrics['successful_tool_call_rate']:.1%}"
+        )
+        self.stdout.write(
+            "Evidence-bearing tool-call rate: "
+            f"{metrics['evidence_bearing_tool_call_rate']:.1%}"
         )
         self.stdout.write(
             "Full core-evidence coverage: "

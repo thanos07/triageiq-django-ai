@@ -33,6 +33,7 @@ def test_mock_investigation_evaluation_writes_structured_report(tmp_path):
     assert metrics["fallback_rate"] == 0.0
     assert metrics["runs_with_tool_call_rate"] == 1.0
     assert metrics["successful_tool_call_rate"] == 1.0
+    assert metrics["evidence_bearing_tool_call_rate"] == 1.0
     assert metrics["budget_compliance_rate"] == 1.0
     assert metrics["hypothesis_present_rate"] == 1.0
     assert metrics["mean_core_evidence_channel_coverage"] == 1.0
@@ -55,3 +56,55 @@ def test_investigation_evaluation_rejects_invalid_limit():
             limit=0,
             stdout=StringIO(),
         )
+
+
+def test_investigation_evaluation_supports_targeted_slugs(tmp_path):
+    output = tmp_path / "targeted-evaluation.json"
+
+    call_command(
+        "evaluate_investigation",
+        mode="mock",
+        slug=[
+            "db-pool-exhaustion",
+            "deployment-regression",
+            "third-party-outage",
+        ],
+        output=str(output),
+        stdout=StringIO(),
+    )
+
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["scenario_count"] == 3
+    assert [row["slug"] for row in report["scenarios"]] == [
+        "db-pool-exhaustion",
+        "deployment-regression",
+        "third-party-outage",
+    ]
+
+
+def test_investigation_evaluation_rejects_unknown_slug():
+    with pytest.raises(CommandError, match="Unknown --slug"):
+        call_command(
+            "evaluate_investigation",
+            mode="mock",
+            slug=["does-not-exist"],
+            stdout=StringIO(),
+        )
+
+
+def test_mock_evaluation_report_keeps_human_auditable_outputs(tmp_path):
+    output = tmp_path / "auditable-evaluation.json"
+
+    call_command(
+        "evaluate_investigation",
+        mode="mock",
+        slug=["deployment-regression"],
+        output=str(output),
+        stdout=StringIO(),
+    )
+
+    row = json.loads(output.read_text(encoding="utf-8"))["scenarios"][0]
+    assert row["leading_hypothesis"]
+    assert row["observations"]
+    assert row["supporting_evidence"]
+    assert isinstance(row["missing_evidence"], list)
