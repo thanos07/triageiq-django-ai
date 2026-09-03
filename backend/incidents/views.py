@@ -101,7 +101,7 @@ class RunbookLibraryView(APIView):
 class IncidentViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "head", "options"]
     queryset = Incident.objects.select_related("workflow", "submitted_by").prefetch_related(
-        "agent_executions",
+        "agent_executions__tool_executions",
         "reviews__reviewer",
         "status_events__changed_by",
         "resolution__actions",
@@ -323,6 +323,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
             if data["decision"] == ReviewDecision.Decision.REVISION_REQUIRED:
                 workflow.current_stage = WorkflowResult.Stage.NORMALIZATION
                 workflow.severity_output = None
+                workflow.investigation_output = None
                 workflow.root_cause_output = None
                 workflow.runbook_output = None
                 workflow.summary_output = None
@@ -398,6 +399,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
         workflow = incident.workflow
         workflow.current_stage = WorkflowResult.Stage.NORMALIZATION
         workflow.severity_output = None
+        workflow.investigation_output = None
         workflow.root_cause_output = None
         workflow.runbook_output = None
         workflow.summary_output = None

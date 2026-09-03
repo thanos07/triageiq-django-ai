@@ -22,6 +22,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { AgentCard } from "@/components/agent-card";
+import { InvestigationTrace } from "@/components/investigation-trace";
 import { useAuth } from "@/components/auth-provider";
 import { PipelineStepper } from "@/components/pipeline-stepper";
 import { Badge, Button, Card, Input, Label, PageHeader, Select, Spinner, Textarea } from "@/components/ui";
@@ -34,6 +35,7 @@ type Tab = "overview" | "analysis" | "timeline" | "resolution";
 const stageTitles: Record<string, string> = {
   normalization: "Incident normalizer",
   severity: "Severity agent",
+  investigation: "Investigation agent",
   root_cause: "Root-cause agent",
   runbook: "Runbook agent",
   summary: "Communication agent",
@@ -78,7 +80,7 @@ export default function IncidentDetailPage() {
   async function runAllStages() {
     setBusy("pipeline"); setError("");
     try {
-      for (let step = 0; step < 5; step += 1) {
+      for (let step = 0; step < 6; step += 1) {
         const response = await apiFetch<{ completed_stage: string; incident: IncidentDetail }>(`/incidents/${id}/advance/`, { method: "POST", body: "{}" });
         queryClient.setQueryData(["incident", id], response.incident);
         if (response.completed_stage === "complete") break;
@@ -218,6 +220,7 @@ export default function IncidentDetailPage() {
       {tab === "analysis" ? (
         <div className="grid gap-6 xl:grid-cols-2">
           <AgentCard title="Severity agent" output={incident.workflow.severity_output} confidence={incident.workflow.severity_output ? Number(incident.workflow.severity_output.confidence || 0) : null} model={latestExecutions.get("severity")?.model_name} latency={latestExecutions.get("severity")?.latency_ms} mode={latestExecutions.get("severity")?.execution_mode} />
+          <div className="xl:col-span-2"><InvestigationTrace output={incident.workflow.investigation_output} execution={latestExecutions.get("investigation")} /></div>
           <AgentCard title="Root-cause agent" output={incident.workflow.root_cause_output} confidence={incident.workflow.root_cause_output ? Number(incident.workflow.root_cause_output.confidence || 0) : null} model={latestExecutions.get("root_cause")?.model_name} latency={latestExecutions.get("root_cause")?.latency_ms} mode={latestExecutions.get("root_cause")?.execution_mode} />
           <AgentCard title="Runbook agent" output={incident.workflow.runbook_output} confidence={incident.workflow.runbook_output ? Number(incident.workflow.runbook_output.confidence || 0) : null} model={latestExecutions.get("runbook")?.model_name} latency={latestExecutions.get("runbook")?.latency_ms} mode={latestExecutions.get("runbook")?.execution_mode} />
           <AgentCard title="Communication agent" output={incident.workflow.summary_output} confidence={incident.workflow.summary_output ? Number(incident.workflow.summary_output.confidence || 0) : null} model={latestExecutions.get("summary")?.model_name} latency={latestExecutions.get("summary")?.latency_ms} mode={latestExecutions.get("summary")?.execution_mode} />

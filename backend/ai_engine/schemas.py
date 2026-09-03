@@ -10,6 +10,15 @@ class SeverityResult(BaseModel):
     signals: list[str] = Field(default_factory=list)
 
 
+class InvestigationResult(BaseModel):
+    observations: list[str] = Field(default_factory=list)
+    tools_used: list[str] = Field(default_factory=list)
+    leading_hypothesis: str = ""
+    supporting_evidence: list[str] = Field(default_factory=list)
+    missing_evidence: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0, le=1)
+
+
 class RootCauseResult(BaseModel):
     probable_cause: str
     category: str

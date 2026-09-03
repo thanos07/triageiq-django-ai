@@ -46,7 +46,7 @@ def test_full_incident_lifecycle_and_pdf(client, incident):
     incident_id = incident["id"]
     advance_url = reverse("incident-advance", kwargs={"pk": incident_id})
 
-    for _ in range(5):
+    for _ in range(6):
         response = client.post(advance_url, {}, format="json")
         assert response.status_code == 200
 
@@ -150,7 +150,7 @@ def test_temporary_json_upload_links_to_incident_and_feeds_runbook(client, tmp_p
     source_file = TemporaryIncidentFile.objects.get(id=extraction_data["source_file"]["id"])
     assert str(source_file.incident_id) == incident_id
 
-    for _ in range(5):
+    for _ in range(6):
         result = client.post(reverse("incident-advance", kwargs={"pk": incident_id}), {}, format="json")
         assert result.status_code == 200
 

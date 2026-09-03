@@ -11,6 +11,8 @@ Deterministic normalization
       ↓
 Severity Agent
       ↓
+Investigation Agent
+      ↓
 Root-Cause Agent
       ↓
 Runbook Agent
@@ -50,7 +52,9 @@ The AI is advisory. A human reviewer approves the plan, and an operator must rec
 - User roles: Administrator, Incident Manager, Reviewer, Viewer
 - Searchable incident registry and operational dashboard
 - Recoverable, one-stage-per-request AI pipeline
-- Four visible and auditable AI agents
+- Five visible and auditable AI agents, including a bounded Investigation Agent
+- Read-only local Investigation tools for deployments, service metrics, logs, and runbook search
+- Per-tool audit records with arguments, sanitized results, latency, status, and live/mock/fallback mode
 - Searchable 30-case operational Runbook Library with transparent retrieval
 - Provider abstraction for Groq or another OpenAI-compatible endpoint
 - GPT-OSS model configuration through environment variables
@@ -74,7 +78,7 @@ The AI is advisory. A human reviewer approves the plan, and an operator must rec
 triageiq-django-ai/
 ├── backend/
 │   ├── accounts/              # Custom user and roles
-│   ├── ai_engine/             # Provider, schemas, prompts, four agents, pipeline
+│   ├── ai_engine/             # Provider, schemas, prompts, five agents, tools, pipeline
 │   ├── incidents/             # Models, uploads, extraction, lifecycle, review and resolution
 │   ├── reports/               # Branded PDF generation
 │   ├── config/                # Django settings and routing
@@ -174,13 +178,28 @@ AI_BASE_URL=https://api.groq.com/openai/v1
 AI_API_KEY=your_key
 AI_MODEL=openai/gpt-oss-20b
 AI_FALLBACK_MODEL=openai/gpt-oss-120b
+AI_INVESTIGATION_MAX_TOOL_CALLS=3
 ```
+
+The Investigation Agent uses bounded local function calling. The configured tool-call budget defaults to 3 and is clamped to 1-5 calls. The model may stop early when it has enough evidence.
+
+Execution modes are explicit:
+
+- `live`: the configured model selects read-only tools and produces the final structured investigation;
+- `mock`: deterministic local behavior for repeatable demos and tests;
+- `fallback`: live execution was expected but provider, quota, validation, or another live-path failure required safe deterministic fallback.
 
 The provider uses the OpenAI Python client against an OpenAI-compatible base URL, so another compatible provider can be adopted without rewriting the agents.
 
 ## Why the pipeline is staged
 
 The frontend does not send one long request for all agents. It calls the next incomplete stage repeatedly:
+
+```text
+Normalization → Severity → Investigation → Root Cause → Runbook → Summary
+```
+
+Each Investigation tool request is validated against an explicit registry, executed locally, sanitized, and recorded in the audit trail before the workflow continues.
 
 ```text
 POST /api/incidents/{id}/advance/
@@ -249,7 +268,7 @@ The final report includes the original incident, all agent results, confidence a
 
 ## Synthetic conditions and runbook coverage
 
-`python manage.py seed_demo` creates exactly **20 synthetic incident conditions**. All 20 complete the four-agent pipeline and are distributed across awaiting review, revision required, rejected, remediation in progress, and resolved states. Each scenario records its expected runbook case.
+`python manage.py seed_demo` creates exactly **20 synthetic incident conditions**. All 20 complete the five-agent pipeline and are distributed across awaiting review, revision required, rejected, remediation in progress, and resolved states. Each scenario records its expected runbook case.
 
 The Runbook Library contains exactly **30 problem–diagnosis–solution cases** covering databases, Kubernetes, capacity, networking, certificates, authentication, payments, queues, caching, edge controls, deployment, configuration, third-party providers, storage, data integrity, security, observability, scheduled jobs, and unknown incidents. See [`docs/runbook-library.md`](docs/runbook-library.md).
 
@@ -258,6 +277,55 @@ The parameterised test suite contributes:
 - 20 independent synthetic incident-to-runbook matching conditions;
 - 30 independent runbook completeness conditions;
 - count, fallback, seed-command, lifecycle, upload, authentication, and PDF conditions.
+
+## Investigation Agent evaluation
+
+The repository includes a database-free evaluation command for the Investigation Agent:
+
+```bash
+cd backend
+python manage.py evaluate_investigation --mode mock
+```
+
+It measures tool execution reliability, evidence-bearing calls, bounded-call compliance, synthetic evidence-channel coverage, deployment-inspection recall, latency, and output completeness. These metrics **do not claim semantic root-cause accuracy**.
+
+Deterministic 20-scenario benchmark:
+
+| Metric | Result |
+|---|---:|
+| Scenarios completed | 20 / 20 |
+| Successful tool-call rate | 100.0% |
+| Evidence-bearing tool-call rate | 100.0% |
+| Full core-evidence coverage | 100.0% |
+| Deployment inspection recall | 100.0% |
+| Fallback rate | 0.0% |
+| Mean tool calls | 3.00 |
+| Mean confidence | 0.780 |
+
+A targeted live Groq sample was also run across three qualitatively different scenarios: database pool exhaustion, deployment regression, and a third-party outage.
+
+| Metric | Result |
+|---|---:|
+| Scenarios completed in live mode | 3 / 3 |
+| Successful tool-call rate | 100.0% |
+| Evidence-bearing tool-call rate | 77.8% |
+| Full core-evidence coverage | 100.0% |
+| Deployment inspection recall | 100.0% |
+| Fallback rate | 0.0% |
+| Mean tool calls | 3.00 |
+| Mean confidence | 0.850 |
+
+The live sample is intentionally small and is not presented as an accuracy benchmark. Two successful deployment lookups returned no deployment evidence, which is preserved in the reported 77.8% evidence-bearing rate rather than hidden.
+
+Targeted live or mock scenarios can be selected by repeating `--slug`:
+
+```bash
+python manage.py evaluate_investigation \
+  --mode live \
+  --slug db-pool-exhaustion \
+  --slug deployment-regression \
+  --slug third-party-outage
+```
 
 ## Tests
 
@@ -306,7 +374,9 @@ When persistent background workers become necessary, retain Vercel for Next.js a
 
 - Designed a Django domain model for a real incident lifecycle rather than a single AI form.
 - Implemented role-based access and human accountability around AI recommendations.
-- Used typed structured outputs for four specialised agents.
+- Used typed structured outputs for five specialised agents.
+- Built a bounded Investigation Agent with model-selected local tools, schema validation, explicit audit records, and deterministic fallback behavior.
+- Added reproducible mock evaluation plus a transparent targeted live-provider sample.
 - Built provider-independent AI integration and deterministic fallback behaviour.
 - Designed a resumable workflow for free serverless infrastructure constraints.
 - Generated audit-ready PDF reports without permanent report storage.

@@ -3,6 +3,7 @@ import { Check, Circle, Loader2 } from "lucide-react";
 const stages = [
   { key: "submitted", label: "Submitted" },
   { key: "severity", label: "Severity" },
+  { key: "investigation", label: "Investigation" },
   { key: "root_cause", label: "Root cause" },
   { key: "runbook", label: "Runbook" },
   { key: "summary", label: "Summary" },
@@ -11,18 +12,18 @@ const stages = [
 ];
 
 function completedIndex(currentStage: string, status: string): number {
-  if (["resolved", "closed"].includes(status)) return 6;
-  if (status === "remediation_in_progress") return 5;
-  if (["approved", "rejected", "revision_required"].includes(status)) return 5;
-  if (status === "awaiting_review") return 4;
-  const mapping: Record<string, number> = { not_started: 0, normalization: 0, severity: 1, root_cause: 2, runbook: 3, summary: 4, complete: 4 };
+  if (["resolved", "closed"].includes(status)) return 7;
+  if (status === "remediation_in_progress") return 6;
+  if (["approved", "rejected", "revision_required"].includes(status)) return 6;
+  if (status === "awaiting_review") return 5;
+  const mapping: Record<string, number> = { not_started: 0, normalization: 0, severity: 1, investigation: 2, root_cause: 3, runbook: 4, summary: 5, complete: 5 };
   return mapping[currentStage] ?? 0;
 }
 
 export function PipelineStepper({ currentStage, status, processing }: { currentStage: string; status: string; processing: boolean }) {
   const current = completedIndex(currentStage, status);
   return (
-    <div className="grid gap-3 sm:grid-cols-4 xl:grid-cols-7">
+    <div className="grid gap-3 sm:grid-cols-4 xl:grid-cols-8">
       {stages.map((stage, index) => {
         const done = index <= current;
         const active = index === current + 1 || (index === current && processing);

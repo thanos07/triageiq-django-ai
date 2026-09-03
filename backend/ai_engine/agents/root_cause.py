@@ -14,7 +14,16 @@ class RootCauseAgent(BaseAgent[RootCauseResult]):
 
     def deterministic(self, context: dict[str, Any]) -> RootCauseResult:
         incident = context.get("incident", {})
-        text = f"{incident.get('title', '')} {incident.get('description', '')}".lower()
+        investigation = context.get("investigation", {}) or {}
+        investigation_text = " ".join([
+            str(investigation.get("leading_hypothesis", "")),
+            " ".join(str(item) for item in investigation.get("observations", []) or []),
+            " ".join(str(item) for item in investigation.get("supporting_evidence", []) or []),
+        ])
+        text = (
+            f"{incident.get('title', '')} {incident.get('description', '')} "
+            f"{investigation_text}"
+        ).lower()
 
         mappings = [
             (("deploy", "release", "rollback"), "Recent deployment regression", "deployment"),
@@ -30,7 +39,14 @@ class RootCauseAgent(BaseAgent[RootCauseResult]):
             matched = [term for term in terms if term in text]
             if matched:
                 probable, category = cause, mapped_category
-                evidence = [f"Incident text contains signal: {term}" for term in matched[:3]]
+                evidence = [
+                    (
+                        f"Investigation evidence contains signal: {term}"
+                        if term in investigation_text.lower()
+                        else f"Incident text contains signal: {term}"
+                    )
+                    for term in matched[:3]
+                ]
                 break
         if not evidence:
             evidence = ["The reported symptoms indicate service-level failure but telemetry is incomplete"]

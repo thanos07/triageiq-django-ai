@@ -6,6 +6,7 @@ from rest_framework import serializers
 from accounts.serializers import UserSerializer
 from .models import (
     AgentExecution,
+    AgentToolExecution,
     Incident,
     ResolutionAction,
     ResolutionRecord,
@@ -26,6 +27,7 @@ class WorkflowSerializer(serializers.ModelSerializer):
             "progress_percent",
             "normalized_data",
             "severity_output",
+            "investigation_output",
             "root_cause_output",
             "runbook_output",
             "summary_output",
@@ -42,17 +44,36 @@ class WorkflowSerializer(serializers.ModelSerializer):
         stages = {
             WorkflowResult.Stage.NOT_STARTED: 0,
             WorkflowResult.Stage.NORMALIZATION: 16,
-            WorkflowResult.Stage.SEVERITY: 33,
-            WorkflowResult.Stage.ROOT_CAUSE: 50,
-            WorkflowResult.Stage.RUNBOOK: 67,
-            WorkflowResult.Stage.SUMMARY: 84,
+            WorkflowResult.Stage.SEVERITY: 29,
+            WorkflowResult.Stage.INVESTIGATION: 43,
+            WorkflowResult.Stage.ROOT_CAUSE: 57,
+            WorkflowResult.Stage.RUNBOOK: 71,
+            WorkflowResult.Stage.SUMMARY: 86,
             WorkflowResult.Stage.COMPLETE: 100,
         }
         return stages.get(obj.current_stage, 0)
 
 
+class AgentToolExecutionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AgentToolExecution
+        fields = (
+            "id",
+            "sequence",
+            "tool_name",
+            "arguments",
+            "result",
+            "status",
+            "execution_mode",
+            "latency_ms",
+            "error_message",
+            "created_at",
+        )
+
+
 class AgentExecutionSerializer(serializers.ModelSerializer):
     stage_label = serializers.CharField(source="get_stage_display", read_only=True)
+    tool_executions = AgentToolExecutionSerializer(many=True, read_only=True)
 
     class Meta:
         model = AgentExecution
@@ -68,6 +89,7 @@ class AgentExecutionSerializer(serializers.ModelSerializer):
             "latency_ms",
             "retry_count",
             "error_message",
+            "tool_executions",
             "created_at",
         )
 

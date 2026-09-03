@@ -71,11 +71,21 @@ export interface UploadExtractionResponse {
   warnings: string[];
 }
 
+export interface InvestigationResult {
+  observations: string[];
+  tools_used: string[];
+  leading_hypothesis: string;
+  supporting_evidence: string[];
+  missing_evidence: string[];
+  confidence: number;
+}
+
 export interface Workflow {
   current_stage: string;
   progress_percent: number;
   normalized_data: Record<string, unknown> | null;
   severity_output: Record<string, unknown> | null;
+  investigation_output: InvestigationResult | null;
   root_cause_output: Record<string, unknown> | null;
   runbook_output: Record<string, unknown> | null;
   summary_output: Record<string, unknown> | null;
@@ -86,6 +96,19 @@ export interface Workflow {
   failure_reason: string;
   started_at: string | null;
   completed_at: string | null;
+}
+
+export interface AgentToolExecution {
+  id: number;
+  sequence: number;
+  tool_name: string;
+  arguments: Record<string, unknown>;
+  result: Record<string, unknown>;
+  status: "started" | "success" | "failed";
+  execution_mode?: "live" | "mock" | "fallback";
+  latency_ms: number | null;
+  error_message: string;
+  created_at: string;
 }
 
 export interface AgentExecution {
@@ -100,6 +123,7 @@ export interface AgentExecution {
   latency_ms: number | null;
   retry_count: number;
   error_message: string;
+  tool_executions: AgentToolExecution[];
   created_at: string;
 }
 

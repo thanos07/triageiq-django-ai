@@ -196,7 +196,7 @@ class Command(BaseCommand):
         Run every AI pipeline stage for a synthetic incident.
         """
 
-        for _ in range(5):
+        for _ in range(6):
             incident, _workflow, stage = advance_pipeline(
                 incident,
                 user=user,
