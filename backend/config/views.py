@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import secrets
 
 from django.conf import settings
@@ -13,9 +12,6 @@ from rest_framework.views import APIView
 from incidents.services.retention_cleanup import (
     purge_expired_temporary_files,
 )
-
-
-logger = logging.getLogger(__name__)
 
 
 class RootView(APIView):
@@ -60,26 +56,6 @@ class HealthView(APIView):
             connection.ensure_connection()
         except Exception:
             database_status = "unavailable"
-
-        db_settings = connection.settings_dict
-        host = str(db_settings.get("HOST") or "")
-
-        provider = (
-            "neon"
-            if "neon.tech" in host
-            else "supabase"
-            if "supabase" in host
-            else "other"
-        )
-
-        logger.warning(
-            "DB_DIAGNOSTIC provider=%s vendor=%s host=%s database=%s user=%s",
-            provider,
-            connection.vendor,
-            host,
-            db_settings.get("NAME"),
-            db_settings.get("USER"),
-        )
 
         response_status = (
             "ok"
