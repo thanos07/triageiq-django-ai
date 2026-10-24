@@ -276,7 +276,7 @@ export default function LoginPage() {
           <p className="mt-5 text-center text-xs text-[var(--taupe)]">
             Built by{" "}
             <a
-              href="https://portfolio-rosy-psi-74.vercel.app/"
+              href="https://mdnoorportfolio.vercel.app/"
               target="_blank"
               rel="noreferrer"
               className="font-semibold text-[var(--camel-dark)] underline decoration-[var(--camel)] underline-offset-4 transition hover:text-[var(--espresso)]"
